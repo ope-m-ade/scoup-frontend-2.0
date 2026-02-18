@@ -1,23 +1,34 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Separator } from "./ui/separator";
-import { Eye, EyeOff, Lock, Mail, University, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ArrowLeft } from "lucide-react";
+import { authAPI } from "../utils/api";
 
 interface FacultyLoginProps {
   onBack?: () => void;
   onLoginSuccess?: () => void;
-  onSignup?: () => void;
+  onNavigateSignup?: () => void;
 }
 
-export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginProps) {
+export function FacultyLogin({
+  onBack,
+  onLoginSuccess,
+  onNavigateSignup,
+}: FacultyLoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     emailOrUsername: "",
-    password: ""
+    password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -27,29 +38,29 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
     setIsLoading(true);
     setError("");
 
-    // Simulate login process
     try {
-      // Mock authentication - replace with real authentication
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (formData.emailOrUsername && formData.password) {
-        console.log("Login attempt:", formData);
-        // Handle successful login here
-        if (onLoginSuccess) {
-          onLoginSuccess();
-        }
-      } else {
-        setError("Please fill in all fields");
+      // Call Django backend login API
+      await authAPI.login(formData.emailOrUsername, formData.password);
+
+      console.log("Login successful");
+
+      // Handle successful login
+      if (onLoginSuccess) {
+        onLoginSuccess();
       }
-    } catch (err) {
-      setError("Login failed. Please try again.");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(
+        err.message ||
+          "Login failed. Please check your credentials and try again.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (error) setError("");
   };
 
@@ -59,7 +70,6 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center space-x-2">
-            <University className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-semibold text-primary">SCOUP</h1>
           </div>
           <p className="text-muted-foreground">Faculty Portal Access</p>
@@ -71,9 +81,9 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl">Welcome Back</CardTitle>
               {onBack && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={onBack}
                   className="h-8 w-8 p-0"
                 >
@@ -85,7 +95,7 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
               Sign in to access your faculty dashboard and collaboration tools
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
@@ -95,14 +105,18 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="emailOrUsername">Email Address or Username</Label>
+                <Label htmlFor="emailOrUsername">
+                  Email Address or Username
+                </Label>
                 <div className="relative">
                   <Input
                     id="emailOrUsername"
                     type="text"
                     placeholder="your.email@salisbury.edu or username"
                     value={formData.emailOrUsername}
-                    onChange={(e) => handleInputChange("emailOrUsername", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("emailOrUsername", e.target.value)
+                    }
                     className="pl-10"
                     required
                   />
@@ -118,7 +132,9 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("password", e.target.value)
+                    }
                     className="pl-10 pr-10"
                     required
                   />
@@ -149,11 +165,7 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
                 </Button>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
@@ -164,7 +176,11 @@ export function FacultyLogin({ onBack, onLoginSuccess, onSignup }: FacultyLoginP
                 <p className="text-sm text-muted-foreground">
                   Need access to SCOUP?
                 </p>
-                <Button variant="outline" className="w-full" onClick={onSignup}>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={onNavigateSignup}
+                >
                   Request Faculty Account
                 </Button>
               </div>

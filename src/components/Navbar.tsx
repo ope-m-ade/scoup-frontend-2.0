@@ -9,13 +9,6 @@ interface NavbarProps {
   currentPage: "home" | "about" | "faculty-login" | "admin-login";
 }
 
-interface NavbarProps {
-  onNavigate: (
-    page: "home" | "about" | "faculty-login" | "admin-login",
-  ) => void;
-  currentPage: "home" | "about" | "faculty-login" | "admin-login";
-}
-
 export function Navbar({ onNavigate, currentPage }: NavbarProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -95,13 +88,6 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
             className="text-gray-900 hover:bg-[#ffd100] hover:text-[#8b0000] font-medium w-full"
           >
             Faculty Login
-          </Button>
-          <Button
-            onClick={() => onNavigate("admin-login")}
-            variant="ghost"
-            className="text-gray-900 hover:bg-[#ffd100] hover:text-[#8b0000] font-medium w-full"
-          >
-            Admin Login
           </Button>
         </div>
       </div>

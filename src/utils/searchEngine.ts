@@ -9,6 +9,35 @@ import {
   patentsData,
   projectsData,
 } from "../data/searchData";
+import { PublicDataset, fallbackDataset } from "./publicData";
+
+let dataset: PublicDataset = {
+  facultyData,
+  papersData,
+  patentsData,
+  projectsData,
+};
+
+export function setSearchDataset(nextDataset?: Partial<PublicDataset>) {
+  dataset = {
+    facultyData:
+      nextDataset?.facultyData && nextDataset.facultyData.length > 0
+        ? nextDataset.facultyData
+        : fallbackDataset.facultyData,
+    papersData:
+      nextDataset?.papersData && nextDataset.papersData.length > 0
+        ? nextDataset.papersData
+        : fallbackDataset.papersData,
+    patentsData:
+      nextDataset?.patentsData && nextDataset.patentsData.length > 0
+        ? nextDataset.patentsData
+        : fallbackDataset.patentsData,
+    projectsData:
+      nextDataset?.projectsData && nextDataset.projectsData.length > 0
+        ? nextDataset.projectsData
+        : fallbackDataset.projectsData,
+  };
+}
 
 /**
  * Calculate confidence score based on keyword matches
@@ -91,7 +120,7 @@ export async function performSearch(query: string): Promise<SearchResult[]> {
   const results: SearchResult[] = [];
 
   // Search faculty
-  facultyData.forEach((faculty) => {
+  dataset.facultyData.forEach((faculty) => {
     const contentText = `${faculty.name} ${faculty.title} ${faculty.department} ${faculty.bio} ${faculty.researchInterests.join(" ")}`;
     const { score, matchedKeywords } = calculateConfidence(
       searchTerms,
@@ -111,7 +140,7 @@ export async function performSearch(query: string): Promise<SearchResult[]> {
   });
 
   // Search papers
-  papersData.forEach((paper) => {
+  dataset.papersData.forEach((paper) => {
     const contentText = `${paper.title} ${paper.abstract} ${paper.authors.join(" ")}`;
     const { score, matchedKeywords } = calculateConfidence(
       searchTerms,
@@ -131,7 +160,7 @@ export async function performSearch(query: string): Promise<SearchResult[]> {
   });
 
   // Search patents
-  patentsData.forEach((patent) => {
+  dataset.patentsData.forEach((patent) => {
     const contentText = `${patent.title} ${patent.description} ${patent.inventors.join(" ")}`;
     const { score, matchedKeywords } = calculateConfidence(
       searchTerms,
@@ -151,7 +180,7 @@ export async function performSearch(query: string): Promise<SearchResult[]> {
   });
 
   // Search projects
-  projectsData.forEach((project) => {
+  dataset.projectsData.forEach((project) => {
     const contentText = `${project.title} ${project.description} ${project.leadFaculty.join(" ")}`;
     const { score, matchedKeywords } = calculateConfidence(
       searchTerms,

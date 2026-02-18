@@ -1,7 +1,6 @@
 import { Button } from "./ui/button";
 import { ArrowRight, Target, Network, Building2, BarChart3, MessageSquare, Users, Zap, Shield, Headphones } from "lucide-react";
 import { Navbar } from "./Navbar";
-import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
 
 interface AboutProps {
   onNavigate: (page: "home" | "about" | "faculty-login" | "admin-login") => void;

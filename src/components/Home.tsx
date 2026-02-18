@@ -3,10 +3,11 @@ import { Button } from "./ui/button";
 import { Search, TrendingUp, Users } from "lucide-react";
 import { Navbar } from "./Navbar";
 import { SearchResults } from "./SearchResults";
-import { performSearch } from "../utils/searchEngine";
-import { SearchResult, facultyData, papersData, patentsData, projectsData } from "../data/searchData";
+import { performSearch, setSearchDataset } from "../utils/searchEngine";
+import { SearchResult } from "../data/searchData";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { fallbackDataset, fetchPublicDataset } from "../utils/publicData";
 
 interface HomeProps {
   onNavigate: (page: "home" | "about" | "faculty-login" | "admin-login") => void;
@@ -18,6 +19,7 @@ export function Home({ onNavigate }: HomeProps) {
   const [hasSearched, setHasSearched] = useState(false);
   const [activeFilters, setActiveFilters] = useState<string[]>(["faculty", "paper", "patent", "project"]);
   const [isSearching, setIsSearching] = useState(false);
+  const [publicDataset, setPublicDataset] = useState(fallbackDataset);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,10 +56,9 @@ export function Home({ onNavigate }: HomeProps) {
   });
 
   useEffect(() => {
-    // Generate analytics from mock data
     const generateAnalytics = () => {
       // Publications per year
-      const yearCounts = papersData.reduce((acc, paper) => {
+      const yearCounts = publicDataset.papersData.reduce((acc, paper) => {
         const year = paper.year.toString();
         acc[year] = (acc[year] || 0) + 1;
         return acc;
@@ -70,7 +71,7 @@ export function Home({ onNavigate }: HomeProps) {
       setPublicationsPerYear(pubsData);
 
       // Faculty by department
-      const deptCounts = facultyData.reduce((acc, faculty) => {
+      const deptCounts = publicDataset.facultyData.reduce((acc, faculty) => {
         acc[faculty.department] = (acc[faculty.department] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -82,14 +83,29 @@ export function Home({ onNavigate }: HomeProps) {
 
       // Overall stats
       setStats({
-        totalPublications: papersData.length,
-        facultyMembers: facultyData.length,
-        activePatents: patentsData.length,
-        ongoingProjects: projectsData.length
+        totalPublications: publicDataset.papersData.length,
+        facultyMembers: publicDataset.facultyData.length,
+        activePatents: publicDataset.patentsData.length,
+        ongoingProjects: publicDataset.projectsData.length
       });
     };
 
     generateAnalytics();
+  }, [publicDataset]);
+
+  useEffect(() => {
+    const loadPublicData = async () => {
+      try {
+        const apiDataset = await fetchPublicDataset();
+        setPublicDataset(apiDataset);
+        setSearchDataset(apiDataset);
+      } catch (error) {
+        console.error("Failed to load backend dataset, using fallback data:", error);
+        setSearchDataset(fallbackDataset);
+      }
+    };
+
+    loadPublicData();
   }, []);
 
   return (
@@ -457,6 +473,14 @@ export function Home({ onNavigate }: HomeProps) {
                   <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
                     Contact
                   </a>
+                </li>
+                <li>
+                  <button
+                    onClick={() => onNavigate("admin-login")}
+                    className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
+                  >
+                    Admin Login
+                  </button>
                 </li>
               </ul>
             </div>

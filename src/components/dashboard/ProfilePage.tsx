@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Camera, Plus, X, Edit2, Save, Sparkles, CheckCircle2, Circle } from "lucide-react";
+import { Camera, Plus, X, Edit2, Save, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
 import { ProfileCompletionWidget } from "./ProfileCompletionWidget";
+import { apiCall, authAPI, facultyAPI } from "../../utils/api";
 
 interface Qualification {
   id: string;
@@ -20,6 +21,12 @@ interface Qualification {
 export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState("");
+  const [facultyId, setFacultyId] = useState<number | null>(null);
+  const [fallbackFacultyIds, setFallbackFacultyIds] = useState<number[]>([]);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState("");
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -54,6 +61,71 @@ export function ProfilePage() {
     content: string;
   }>({ type: null, content: "" });
 
+  useEffect(() => {
+    const loadProfile = async () => {
+      setIsLoadingProfile(true);
+      setSaveError("");
+
+      try {
+        const me = await authAPI.me();
+
+        const possibleIds = [
+          me?.id,
+          me?.faculty_id,
+          me?.facultyId,
+          me?.user_id,
+          me?.user?.id,
+        ].filter((value): value is number => typeof value === "number");
+
+        if (possibleIds.length > 0) {
+          setFacultyId(possibleIds[0]);
+          setFallbackFacultyIds(Array.from(new Set(possibleIds)));
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          firstName: me?.first_name ?? me?.firstName ?? "",
+          lastName: me?.last_name ?? me?.lastName ?? "",
+          email: me?.email ?? "",
+          department: me?.department ?? "",
+          title: me?.title ?? "",
+          phone: me?.phone ?? "",
+          officeLocation: me?.office_location ?? me?.officeLocation ?? "",
+          bio: me?.bio ?? "",
+          researchInterests:
+            me?.research_interests ?? me?.researchInterests ?? "",
+          personalWebsite: me?.personal_website ?? me?.personalWebsite ?? "",
+        }));
+
+        if (Array.isArray(me?.keywords)) {
+          setKeywords(me.keywords.filter((kw: unknown) => typeof kw === "string"));
+        }
+
+        if (Array.isArray(me?.qualifications)) {
+          setQualifications(
+            me.qualifications.map((q: any, index: number) => ({
+              id: String(q?.id ?? index),
+              degree: q?.degree ?? "",
+              institution: q?.institution ?? "",
+              year: String(q?.year ?? ""),
+            })),
+          );
+        }
+
+        const photo = me?.profile_photo || me?.profilePhoto || me?.photo;
+        if (typeof photo === "string") {
+          setProfilePhoto(photo);
+        }
+      } catch (err: any) {
+        setSaveError(err?.message || "Unable to load profile.");
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -85,14 +157,96 @@ export function ProfilePage() {
     setQualifications(prev => prev.filter(q => q.id !== id));
   };
 
-  const handleSave = () => {
-    setIsEditing(false);
-    // Here you would typically save to backend
-    console.log("Saving profile data:", formData, qualifications);
+  const handleSave = async () => {
+    setIsSavingProfile(true);
+    setSaveError("");
+    setSaveSuccess("");
+
+    const payload = {
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      email: formData.email,
+      department: formData.department,
+      title: formData.title,
+      phone: formData.phone,
+      office_location: formData.officeLocation,
+      bio: formData.bio,
+      research_interests: formData.researchInterests,
+      personal_website: formData.personalWebsite,
+      keywords,
+      qualifications: qualifications.map(({ id, ...rest }) => rest),
+    };
+
+    const looksLikeRouteIssue = (err: any) => {
+      const msg = String(err?.message || "").toLowerCase();
+      return (
+        msg.includes("404") ||
+        msg.includes("not found") ||
+        msg.includes("405") ||
+        msg.includes("method not allowed")
+      );
+    };
+
+    try {
+      try {
+        await facultyAPI.updateMe(payload);
+      } catch (err) {
+        if (!looksLikeRouteIssue(err)) throw err;
+
+        try {
+          await apiCall("/faculty/me/", {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+        } catch (err2) {
+          if (!looksLikeRouteIssue(err2)) throw err2;
+
+          const idsToTry = Array.from(
+            new Set(
+              [facultyId, ...fallbackFacultyIds].filter(
+                (id): id is number => typeof id === "number",
+              ),
+            ),
+          );
+
+          if (idsToTry.length === 0) {
+            throw new Error(
+              "Profile endpoint mismatch. Could not resolve a faculty id for fallback update.",
+            );
+          }
+
+          let updated = false;
+          let lastError: any = null;
+
+          for (const id of idsToTry) {
+            try {
+              await facultyAPI.update(id, payload);
+              updated = true;
+              break;
+            } catch (err3) {
+              lastError = err3;
+            }
+          }
+
+          if (!updated) {
+            throw lastError || new Error("Unable to save profile.");
+          }
+        }
+      }
+
+      setIsEditing(false);
+      setSaveSuccess("Profile saved.");
+    } catch (err: any) {
+      setSaveError(err?.message || "Unable to save profile.");
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const getInitials = () => {
-    return `${formData.firstName[0]}${formData.lastName[0]}`;
+    const first = formData.firstName?.[0] || "";
+    const last = formData.lastName?.[0] || "";
+    return `${first}${last}`.trim() || "SU";
   };
 
   const generateAIBio = async () => {
@@ -218,13 +372,14 @@ export function ProfilePage() {
           <p className="text-gray-600 mt-1">Manage your profile information and qualifications</p>
         </div>
         <Button
-          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+          onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
           className={isEditing ? "bg-green-600 hover:bg-green-700" : ""}
+          disabled={isLoadingProfile || isSavingProfile}
         >
           {isEditing ? (
             <>
               <Save className="w-4 h-4 mr-2" />
-              Save Changes
+              {isSavingProfile ? "Saving..." : "Save Changes"}
             </>
           ) : (
             <>
@@ -234,6 +389,24 @@ export function ProfilePage() {
           )}
         </Button>
       </div>
+
+      {isLoadingProfile && (
+        <Alert>
+          <AlertDescription>Loading profile...</AlertDescription>
+        </Alert>
+      )}
+
+      {saveError && (
+        <Alert variant="destructive">
+          <AlertDescription>{saveError}</AlertDescription>
+        </Alert>
+      )}
+
+      {saveSuccess && (
+        <Alert>
+          <AlertDescription>{saveSuccess}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Profile Photo */}
       <Card className="p-6">
