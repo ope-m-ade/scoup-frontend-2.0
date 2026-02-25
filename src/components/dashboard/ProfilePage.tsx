@@ -18,9 +18,30 @@ interface Qualification {
   year: string;
 }
 
+const normalizePhotoUrl = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) return "";
+  const raw = value.trim();
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  const configuredApi = import.meta.env.VITE_API_BASE_URL || "";
+  if (!configuredApi) return raw.startsWith("/") ? raw : `/media/${raw}`;
+
+  try {
+    const origin = new URL(configuredApi).origin;
+    if (!raw.startsWith("/")) {
+      // Django ImageField may return a bare relative file path like "faculty_photos/x.jpg"
+      const cleaned = raw.replace(/^media\//, "");
+      return `${origin}/media/${cleaned}`;
+    }
+    return `${origin}${raw}`;
+  } catch {
+    return raw;
+  }
+};
+
 export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState("");
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [facultyId, setFacultyId] = useState<number | null>(null);
   const [fallbackFacultyIds, setFallbackFacultyIds] = useState<number[]>([]);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -113,9 +134,7 @@ export function ProfilePage() {
         }
 
         const photo = me?.profile_photo || me?.profilePhoto || me?.photo;
-        if (typeof photo === "string") {
-          setProfilePhoto(photo);
-        }
+        setProfilePhoto(normalizePhotoUrl(photo));
       } catch (err: any) {
         setSaveError(err?.message || "Unable to load profile.");
       } finally {
@@ -134,6 +153,7 @@ export function ProfilePage() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setProfilePhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfilePhoto(reader.result as string);
@@ -232,6 +252,17 @@ export function ProfilePage() {
             throw lastError || new Error("Unable to save profile.");
           }
         }
+      }
+
+      if (profilePhotoFile) {
+        const upload = await facultyAPI.uploadPhoto(profilePhotoFile);
+        const uploadedPhoto =
+          upload?.photo || upload?.profile_photo || upload?.profilePhoto;
+        const normalizedUploadedPhoto = normalizePhotoUrl(uploadedPhoto);
+        if (normalizedUploadedPhoto) {
+          setProfilePhoto(normalizedUploadedPhoto);
+        }
+        setProfilePhotoFile(null);
       }
 
       setIsEditing(false);

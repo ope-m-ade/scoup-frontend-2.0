@@ -1,13 +1,4 @@
-import {
-  facultyData as fallbackFacultyData,
-  papersData as fallbackPapersData,
-  patentsData as fallbackPatentsData,
-  projectsData as fallbackProjectsData,
-  FacultyMember,
-  Paper,
-  Patent,
-  Project,
-} from "../data/searchData";
+import type { FacultyMember, Paper, Patent, Project } from "../data/searchData";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
@@ -18,13 +9,6 @@ export interface PublicDataset {
   patentsData: Patent[];
   projectsData: Project[];
 }
-
-export const fallbackDataset: PublicDataset = {
-  facultyData: fallbackFacultyData,
-  papersData: fallbackPapersData,
-  patentsData: fallbackPatentsData,
-  projectsData: fallbackProjectsData,
-};
 
 export async function fetchPublicDataset(): Promise<PublicDataset> {
   const response = await fetch(`${API_BASE_URL}/public/search-data/`);
@@ -40,4 +24,3 @@ export async function fetchPublicDataset(): Promise<PublicDataset> {
     projectsData: Array.isArray(data?.projectsData) ? data.projectsData : [],
   };
 }
-

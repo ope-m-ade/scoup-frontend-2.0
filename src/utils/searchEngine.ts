@@ -1,41 +1,25 @@
 import {
-  FacultyMember,
-  Paper,
-  Patent,
-  Project,
-  SearchResult,
-  facultyData,
-  papersData,
-  patentsData,
-  projectsData,
+  type FacultyMember,
+  type Paper,
+  type Patent,
+  type Project,
+  type SearchResult,
 } from "../data/searchData";
-import { PublicDataset, fallbackDataset } from "./publicData";
+import type { PublicDataset } from "./publicData";
 
 let dataset: PublicDataset = {
-  facultyData,
-  papersData,
-  patentsData,
-  projectsData,
+  facultyData: [],
+  papersData: [],
+  patentsData: [],
+  projectsData: [],
 };
 
 export function setSearchDataset(nextDataset?: Partial<PublicDataset>) {
   dataset = {
-    facultyData:
-      nextDataset?.facultyData && nextDataset.facultyData.length > 0
-        ? nextDataset.facultyData
-        : fallbackDataset.facultyData,
-    papersData:
-      nextDataset?.papersData && nextDataset.papersData.length > 0
-        ? nextDataset.papersData
-        : fallbackDataset.papersData,
-    patentsData:
-      nextDataset?.patentsData && nextDataset.patentsData.length > 0
-        ? nextDataset.patentsData
-        : fallbackDataset.patentsData,
-    projectsData:
-      nextDataset?.projectsData && nextDataset.projectsData.length > 0
-        ? nextDataset.projectsData
-        : fallbackDataset.projectsData,
+    facultyData: nextDataset?.facultyData ?? [],
+    papersData: nextDataset?.papersData ?? [],
+    patentsData: nextDataset?.patentsData ?? [],
+    projectsData: nextDataset?.projectsData ?? [],
   };
 }
 
@@ -109,7 +93,7 @@ function generateAIJustification(
 }
 
 /**
- * Main search function - searches through local mock data
+ * Main search function - searches through backend-loaded public dataset
  */
 export async function performSearch(query: string): Promise<SearchResult[]> {
   if (!query.trim()) {

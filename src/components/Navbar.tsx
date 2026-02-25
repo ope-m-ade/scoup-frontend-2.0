@@ -3,13 +3,11 @@ import { Menu, X } from "lucide-react";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
 
 interface NavbarProps {
-  onNavigate: (
-    page: "home" | "about" | "faculty-login" | "admin-login",
-  ) => void;
-  currentPage: "home" | "about" | "faculty-login" | "admin-login";
+  onNavigate: (path: string) => void;
+  currentPath: string;
 }
 
-export function Navbar({ onNavigate, currentPage }: NavbarProps) {
+export function Navbar({ onNavigate, currentPath }: NavbarProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="max-w-7xl mx-auto px-6 py-4">
@@ -36,9 +34,9 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
           {/* Desktop Navigation - Centered */}
           <nav className="hidden md:flex flex-1 justify-center gap-8">
             <button
-              onClick={() => onNavigate("home")}
+              onClick={() => onNavigate("/")}
               className={`transition-colors font-medium ${
-                currentPage === "home"
+                currentPath === "/"
                   ? "text-[#8b0000] font-semibold"
                   : "text-gray-700 hover:text-[#8b0000]"
               }`}
@@ -46,9 +44,9 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
               Home
             </button>
             <button
-              onClick={() => onNavigate("about")}
+              onClick={() => onNavigate("/about")}
               className={`transition-colors font-medium ${
-                currentPage === "about"
+                currentPath === "/about"
                   ? "text-[#8b0000] font-semibold"
                   : "text-gray-700 hover:text-[#8b0000]"
               }`}
@@ -60,7 +58,7 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
           {/* Right Side - Desktop Buttons - Takes equal space as left side */}
           <div className="hidden md:flex flex-1 items-center justify-end gap-3">
             <Button
-              onClick={() => onNavigate("faculty-login")}
+              onClick={() => onNavigate("/faculty-login")}
               className="bg-[#8b0000] hover:bg-[#700000] text-white font-medium transition-colors"
             >
               Faculty Login
@@ -77,13 +75,13 @@ export function Navbar({ onNavigate, currentPage }: NavbarProps) {
         {/* Mobile Navigation - Controlled by checkbox */}
         <div className="md:hidden hidden peer-checked:block mt-4 pt-4 border-t border-gray-200 space-y-3">
           <button
-            onClick={() => onNavigate("about")}
+            onClick={() => onNavigate("/about")}
             className="block text-gray-700 hover:text-[#8b0000] transition-colors w-full text-left"
           >
             About SCOUP
           </button>
           <Button
-            onClick={() => onNavigate("faculty-login")}
+            onClick={() => onNavigate("/faculty-login")}
             variant="ghost"
             className="text-gray-900 hover:bg-[#ffd100] hover:text-[#8b0000] font-medium w-full"
           >

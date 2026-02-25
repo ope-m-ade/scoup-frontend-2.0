@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, Bell, User, Save, CheckCircle2 } from "lucide-react";
 import { Button } from "../ui/button";
+import { authAPI, facultyAPI } from "../../utils/api";
 
 export function SettingsPage() {
   // Visibility Settings
@@ -27,11 +28,46 @@ export function SettingsPage() {
   const [visibilitySaved, setVisibilitySaved] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
   const [notificationsSaved, setNotificationsSaved] = useState(false);
+  const [visibilityError, setVisibilityError] = useState("");
+  const [isLoadingVisibility, setIsLoadingVisibility] = useState(true);
+  const [isSavingVisibility, setIsSavingVisibility] = useState(false);
 
-  const handleSaveVisibility = () => {
-    // In a real app, this would save to the backend
-    setVisibilitySaved(true);
-    setTimeout(() => setVisibilitySaved(false), 3000);
+  useEffect(() => {
+    const loadVisibility = async () => {
+      setIsLoadingVisibility(true);
+      setVisibilityError("");
+      try {
+        const me = await authAPI.me();
+        if (typeof me?.profile_visibility === "boolean") {
+          setProfileVisible(me.profile_visibility);
+        } else if (typeof me?.profileVisibility === "boolean") {
+          setProfileVisible(me.profileVisibility);
+        }
+      } catch (err: any) {
+        setVisibilityError(err?.message || "Unable to load visibility settings.");
+      } finally {
+        setIsLoadingVisibility(false);
+      }
+    };
+
+    loadVisibility();
+  }, []);
+
+  const handleSaveVisibility = async () => {
+    setIsSavingVisibility(true);
+    setVisibilitySaved(false);
+    setVisibilityError("");
+    try {
+      await facultyAPI.updateMe({
+        profile_visibility: profileVisible,
+      });
+      setVisibilitySaved(true);
+      setTimeout(() => setVisibilitySaved(false), 3000);
+    } catch (err: any) {
+      setVisibilityError(err?.message || "Unable to save visibility settings.");
+    } finally {
+      setIsSavingVisibility(false);
+    }
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -87,6 +123,7 @@ export function SettingsPage() {
             </div>
             <button
               onClick={() => setProfileVisible(!profileVisible)}
+              disabled={isLoadingVisibility || isSavingVisibility}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 profileVisible ? "bg-[#8b0000]" : "bg-gray-300"
               }`}
@@ -179,16 +216,20 @@ export function SettingsPage() {
         <div className="mt-6 flex items-center gap-3">
           <Button
             onClick={handleSaveVisibility}
+            disabled={isLoadingVisibility || isSavingVisibility}
             className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100]"
           >
             <Save className="w-4 h-4 mr-2" />
-            Save Visibility Settings
+            {isSavingVisibility ? "Saving..." : "Save Visibility Settings"}
           </Button>
           {visibilitySaved && (
             <div className="flex items-center gap-2 text-green-600">
               <CheckCircle2 className="w-5 h-5" />
               <span className="text-sm font-medium">Settings saved!</span>
             </div>
+          )}
+          {visibilityError && (
+            <div className="text-sm text-red-600">{visibilityError}</div>
           )}
         </div>
       </div>

@@ -18,11 +18,15 @@ const clearTokens = () => {
 
 async function rawApiCall(endpoint: string, options: RequestInit = {}) {
   const token = getAccessToken();
+  const isFormDataBody = options.body instanceof FormData;
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...((options.headers as Record<string, string>) || {}),
   };
+
+  if (!isFormDataBody && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -36,12 +40,28 @@ async function rawApiCall(endpoint: string, options: RequestInit = {}) {
     try {
       const err = await res.json();
       message = err?.detail || err?.error || err?.message || message;
-    } catch {}
+    } catch {
+      try {
+        const text = await res.text();
+        if (text) {
+          // Strip HTML tags if server returned an HTML error page.
+          const cleaned = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          if (cleaned) {
+            message = cleaned.slice(0, 240);
+          }
+        }
+      } catch {}
+    }
     throw new Error(message);
   }
 
   const text = await res.text();
-  return text ? JSON.parse(text) : {};
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 let isRefreshing = false;
@@ -149,6 +169,11 @@ export const facultyAPI = {
     apiCall(`/faculty/${id}/`, { method: "PUT", body: JSON.stringify(data) }),
   updateMe: async (data: any) =>
     apiCall("/faculty/me/", { method: "PATCH", body: JSON.stringify(data) }),
+  uploadPhoto: async (file: File) => {
+    const body = new FormData();
+    body.append("photo", file);
+    return apiCall("/faculty/upload-photo/", { method: "POST", body });
+  },
 };
 
 export const papersAPI = {

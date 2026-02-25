@@ -1,5 +1,5 @@
 import { Mail, Phone, ExternalLink, FileText, Lightbulb, FolderOpen, User } from "lucide-react";
-import { SearchResult } from "../data/searchData";
+import type { SearchResult } from "../data/searchData";
 
 interface SearchResultsProps {
   results: SearchResult[];

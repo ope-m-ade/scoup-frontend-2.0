@@ -16,7 +16,7 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - in production, this would validate credentials
+    // Temporary local-only admin login flow
     onLoginSuccess();
   };
 
@@ -91,9 +91,9 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                 <input type="checkbox" className="w-4 h-4 text-[#8b0000] border-gray-300 rounded" />
                 <span className="text-sm text-gray-600">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-[#8b0000] hover:underline">
+              <button type="button" className="text-sm text-[#8b0000] hover:underline">
                 Forgot password?
-              </a>
+              </button>
             </div>
 
             <Button
@@ -105,17 +105,17 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
           </form>
 
           {/* Divider */}
-          <div className="relative my-6">
+          {/* <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-4 bg-white text-gray-500">or</span>
             </div>
-          </div>
+          </div> */}
 
           {/* SSO Options */}
-          <div className="space-y-3">
+          {/* <div className="space-y-3">
             <Button
               type="button"
               variant="outline"
@@ -149,14 +149,14 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
               <Shield className="w-5 h-5 mr-2" />
               Sign in with SU SSO
             </Button>
-          </div>
+          </div> */}
 
           {/* Help Text */}
           <div className="mt-6 text-center text-sm text-gray-600">
             Need admin access?{" "}
-            <a href="#" className="text-[#8b0000] hover:underline font-medium">
+            <button type="button" className="text-[#8b0000] hover:underline font-medium">
               Contact IT Support
-            </a>
+            </button>
           </div>
         </div>
 

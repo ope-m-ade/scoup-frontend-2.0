@@ -4,13 +4,13 @@ import { Search, TrendingUp, Users } from "lucide-react";
 import { Navbar } from "./Navbar";
 import { SearchResults } from "./SearchResults";
 import { performSearch, setSearchDataset } from "../utils/searchEngine";
-import { SearchResult } from "../data/searchData";
+import type { SearchResult } from "../data/searchData";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { fallbackDataset, fetchPublicDataset } from "../utils/publicData";
+import { fetchPublicDataset, type PublicDataset } from "../utils/publicData";
 
 interface HomeProps {
-  onNavigate: (page: "home" | "about" | "faculty-login" | "admin-login") => void;
+  onNavigate: (path: string) => void;
 }
 
 export function Home({ onNavigate }: HomeProps) {
@@ -19,7 +19,13 @@ export function Home({ onNavigate }: HomeProps) {
   const [hasSearched, setHasSearched] = useState(false);
   const [activeFilters, setActiveFilters] = useState<string[]>(["faculty", "paper", "patent", "project"]);
   const [isSearching, setIsSearching] = useState(false);
-  const [publicDataset, setPublicDataset] = useState(fallbackDataset);
+  const [publicDataset, setPublicDataset] = useState<PublicDataset>({
+    facultyData: [],
+    papersData: [],
+    patentsData: [],
+    projectsData: [],
+  });
+  const [publicDataError, setPublicDataError] = useState("");
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +51,7 @@ export function Home({ onNavigate }: HomeProps) {
     );
   };
 
-  // Analytics data - generated from mock data
+  // Analytics data generated from current public dataset
   const [publicationsPerYear, setPublicationsPerYear] = useState<{ year: string; publications: number }[]>([]);
   const [facultyByDepartment, setFacultyByDepartment] = useState<{ department: string; faculty: number }[]>([]);
   const [stats, setStats] = useState({
@@ -96,12 +102,19 @@ export function Home({ onNavigate }: HomeProps) {
   useEffect(() => {
     const loadPublicData = async () => {
       try {
+        setPublicDataError("");
         const apiDataset = await fetchPublicDataset();
         setPublicDataset(apiDataset);
         setSearchDataset(apiDataset);
       } catch (error) {
-        console.error("Failed to load backend dataset, using fallback data:", error);
-        setSearchDataset(fallbackDataset);
+        console.error("Failed to load backend dataset:", error);
+        setPublicDataError("Unable to load live public dataset.");
+        setSearchDataset({
+          facultyData: [],
+          papersData: [],
+          patentsData: [],
+          projectsData: [],
+        });
       }
     };
 
@@ -111,7 +124,7 @@ export function Home({ onNavigate }: HomeProps) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <Navbar onNavigate={onNavigate} currentPage="home" />
+      <Navbar onNavigate={onNavigate} currentPath="/" />
 
       {hasSearched ? (
         // Search Results View
@@ -249,6 +262,11 @@ export function Home({ onNavigate }: HomeProps) {
       {!hasSearched && (
         <section className="bg-white py-20 px-6">
           <div className="max-w-7xl mx-auto">
+            {publicDataError && (
+              <div className="mb-8 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {publicDataError}
+              </div>
+            )}
             {/* Section Header */}
             <div className="text-center mb-12">
               <h2 className="text-4xl font-light text-gray-900 mb-4">
@@ -440,14 +458,14 @@ export function Home({ onNavigate }: HomeProps) {
               <h3 className="font-semibold text-gray-900 mb-4">Resources</h3>
               <ul className="space-y-3">
                 <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
+                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
                     Documentation
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
+                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
                     Tutorials
-                  </a>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -458,25 +476,25 @@ export function Home({ onNavigate }: HomeProps) {
               <ul className="space-y-3">
                 <li>
                   <button
-                    onClick={() => onNavigate("about")}
+                    onClick={() => onNavigate("/about")}
                     className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
                   >
                     SCOUP Overview
                   </button>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
+                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
                     GitHub
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
+                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
                     Contact
-                  </a>
+                  </button>
                 </li>
                 <li>
                   <button
-                    onClick={() => onNavigate("admin-login")}
+                    onClick={() => onNavigate("/admin-login")}
                     className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
                   >
                     Admin Login
@@ -490,15 +508,15 @@ export function Home({ onNavigate }: HomeProps) {
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 mt-8 border-t border-[#e5e5c5]">
             <p className="text-sm text-gray-600">© 2025 SCOUP Team. All rights reserved.</p>
             <div className="flex gap-6 mt-4 md:mt-0">
-              <a href="#" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
+              <button type="button" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
                 Privacy Policy
-              </a>
-              <a href="#" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
+              </button>
+              <button type="button" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
                 Terms of Service
-              </a>
-              <a href="#" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
+              </button>
+              <button type="button" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
                 Cookie Policy
-              </a>
+              </button>
             </div>
           </div>
         </div>
