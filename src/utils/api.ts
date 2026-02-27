@@ -1,5 +1,7 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const API_BASE_URL = (
+  envApiBaseUrl || (import.meta.env.DEV ? "http://localhost:8000/api" : "")
+).replace(/\/+$/, "");
 const ACCESS_KEY = "facultyAccessToken";
 const REFRESH_KEY = "facultyRefreshToken";
 
@@ -17,6 +19,10 @@ const clearTokens = () => {
 };
 
 async function rawApiCall(endpoint: string, options: RequestInit = {}) {
+  if (!API_BASE_URL) {
+    throw new Error("Missing VITE_API_BASE_URL in production environment.");
+  }
+
   const token = getAccessToken();
   const isFormDataBody = options.body instanceof FormData;
 

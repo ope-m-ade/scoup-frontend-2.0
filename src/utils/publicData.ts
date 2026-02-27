@@ -1,7 +1,9 @@
 import type { FacultyMember, Paper, Patent, Project } from "../data/searchData";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const API_BASE_URL = (
+  envApiBaseUrl || (import.meta.env.DEV ? "http://localhost:8000/api" : "")
+).replace(/\/+$/, "");
 
 export interface PublicDataset {
   facultyData: FacultyMember[];
@@ -11,6 +13,10 @@ export interface PublicDataset {
 }
 
 export async function fetchPublicDataset(): Promise<PublicDataset> {
+  if (!API_BASE_URL) {
+    throw new Error("Missing VITE_API_BASE_URL in production environment.");
+  }
+
   const response = await fetch(`${API_BASE_URL}/public/search-data/`);
   if (!response.ok) {
     throw new Error(`Failed to load public data: HTTP ${response.status}`);
