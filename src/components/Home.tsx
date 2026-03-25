@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Search, TrendingUp, Users } from "lucide-react";
 import { Navbar } from "./Navbar";
 import { SearchResults } from "./SearchResults";
-import { performSearch, setSearchDataset } from "../utils/searchEngine";
+import { getSearchSuggestions, performSearch, setSearchDataset } from "../utils/searchEngine";
 import type { SearchResult } from "../data/searchData";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -26,12 +26,32 @@ export function Home({ onNavigate }: HomeProps) {
     projectsData: [],
   });
   const [publicDataError, setPublicDataError] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [highlightedSuggestion, setHighlightedSuggestion] = useState(-1);
+  const searchBoxRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const openSuggestions = (value: string) => {
+    const nextSuggestions = getSearchSuggestions(value, 8);
+    setSuggestions(nextSuggestions);
+    setIsSuggestionsOpen(nextSuggestions.length > 0);
+    setHighlightedSuggestion(-1);
+  };
+
+  const executeSearch = async (rawQuery: string) => {
+    const normalizedQuery = rawQuery.trim();
+    if (!normalizedQuery) {
+      setSearchResults([]);
+      setHasSearched(false);
+      return;
+    }
+
+    setSearchQuery(normalizedQuery);
+    setIsSuggestionsOpen(false);
+    setHighlightedSuggestion(-1);
     setIsSearching(true);
     try {
-      const results = await performSearch(searchQuery);
+      const results = await performSearch(normalizedQuery);
       setSearchResults(results);
       setHasSearched(true);
     } catch (error) {
@@ -40,6 +60,43 @@ export function Home({ onNavigate }: HomeProps) {
       setHasSearched(true);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeSearch(searchQuery);
+  };
+
+  const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isSuggestionsOpen || suggestions.length === 0) {
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedSuggestion((prev) => (prev + 1) % suggestions.length);
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedSuggestion((prev) =>
+        prev <= 0 ? suggestions.length - 1 : prev - 1
+      );
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setIsSuggestionsOpen(false);
+      setHighlightedSuggestion(-1);
+      return;
+    }
+
+    if (e.key === "Enter" && highlightedSuggestion >= 0) {
+      e.preventDefault();
+      void executeSearch(suggestions[highlightedSuggestion]);
     }
   };
 
@@ -121,6 +178,47 @@ export function Home({ onNavigate }: HomeProps) {
     loadPublicData();
   }, []);
 
+  useEffect(() => {
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      if (
+        searchBoxRef.current &&
+        !searchBoxRef.current.contains(event.target as Node)
+      ) {
+        setIsSuggestionsOpen(false);
+        setHighlightedSuggestion(-1);
+      }
+    };
+
+    document.addEventListener("mousedown", onDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
+  }, []);
+
+  const renderSuggestionsDropdown = () => {
+    if (!isSuggestionsOpen || suggestions.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-30 max-h-80 overflow-auto">
+        {suggestions.map((suggestion, index) => (
+          <button
+            key={`${suggestion}-${index}`}
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => void executeSearch(suggestion)}
+            className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+              index === highlightedSuggestion
+                ? "bg-[#fff3bf] text-[#8b0000]"
+                : "text-gray-800 hover:bg-gray-50"
+            }`}
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -134,11 +232,17 @@ export function Home({ onNavigate }: HomeProps) {
             <div className="max-w-6xl mx-auto px-6 py-6">
               <div className="flex justify-center mb-4">
                 <form onSubmit={handleSearch} className="w-full max-w-2xl">
-                  <div className="relative">
+                  <div className="relative" ref={searchBoxRef}>
                     <input
                       type="text"
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSearchQuery(value);
+                        openSuggestions(value);
+                      }}
+                      onFocus={() => openSuggestions(searchQuery)}
+                      onKeyDown={handleSearchInputKeyDown}
                       placeholder="Search faculty expertise, research, or projects..."
                       className="w-full px-6 py-3 pr-14 text-base border-2 border-gray-300 rounded-full focus:outline-none focus:border-[#8b0000] focus:ring-4 focus:ring-[#ffd100]/30 transition-all shadow-md font-light bg-white"
                     />
@@ -148,6 +252,7 @@ export function Home({ onNavigate }: HomeProps) {
                     >
                       <Search className="w-5 h-5" />
                     </button>
+                    {renderSuggestionsDropdown()}
                   </div>
                 </form>
               </div>
@@ -203,6 +308,8 @@ export function Home({ onNavigate }: HomeProps) {
                     setHasSearched(false);
                     setSearchQuery("");
                     setSearchResults([]);
+                    setSuggestions([]);
+                    setIsSuggestionsOpen(false);
                   }}
                   className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors"
                 >
@@ -238,11 +345,17 @@ export function Home({ onNavigate }: HomeProps) {
 
             {/* Search Bar */}
             <form onSubmit={handleSearch} className="w-full max-w-2xl mx-auto pt-6">
-              <div className="relative">
+              <div className="relative" ref={searchBoxRef}>
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchQuery(value);
+                    openSuggestions(value);
+                  }}
+                  onFocus={() => openSuggestions(searchQuery)}
+                  onKeyDown={handleSearchInputKeyDown}
                   placeholder="Search faculty expertise, research, or projects..."
                   className="w-full px-6 py-4 pr-14 text-base border-2 border-gray-300 rounded-full focus:outline-none focus:border-[#8b0000] focus:ring-4 focus:ring-[#ffd100]/30 transition-all shadow-lg font-light bg-white"
                 />
@@ -252,6 +365,7 @@ export function Home({ onNavigate }: HomeProps) {
                 >
                   <Search className="w-5 h-5" />
                 </button>
+                {renderSuggestionsDropdown()}
               </div>
             </form>
           </div>

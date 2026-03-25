@@ -9,16 +9,44 @@ export interface FacultyMember {
   bio: string;
   researchInterests: string[];
   aiKeywords: string[];
+  metricsProfile?: {
+    totalCitations: number;
+    articleCount: number;
+    averageCitations: number;
+  };
+  categories?: {
+    top: string[];
+    mid: string[];
+    low: string[];
+  };
+  themes?: string[];
+  journals?: string[];
+  sourceProfile?: Record<string, unknown>;
 }
 
 export interface Paper {
   id: string;
   title: string;
+  doi?: string;
+  journal?: string;
   authors: string[];
   year: number;
   abstract: string;
   link: string;
   aiKeywords: string[];
+  citations?: number;
+  publishedOnline?: string;
+  publishedPrint?: string;
+  categories?: {
+    top: string[];
+    mid: string[];
+    low: string[];
+  };
+  facultyMembers?: string[];
+  facultyAffiliations?: Record<string, string[]>;
+  sourceMetadata?: Record<string, unknown>;
+  engagementMetrics?: Record<string, unknown>;
+  semanticScore?: number;
 }
 
 export interface Patent {

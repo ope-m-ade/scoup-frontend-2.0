@@ -1,4 +1,13 @@
-import { Mail, Phone, ExternalLink, FileText, Lightbulb, FolderOpen, User } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Mail,
+  Phone,
+  ExternalLink,
+  FileText,
+  Lightbulb,
+  FolderOpen,
+  User,
+} from "lucide-react";
 import type { SearchResult } from "../data/searchData";
 
 interface SearchResultsProps {
@@ -7,9 +16,29 @@ interface SearchResultsProps {
   activeFilters: string[];
 }
 
-export function SearchResults({ results, query, activeFilters }: SearchResultsProps) {
+const PAGE_SIZE = 10;
+
+export function SearchResults({
+  results,
+  query,
+  activeFilters,
+}: SearchResultsProps) {
   // Filter results based on active filters
-  const filteredResults = results.filter(result => activeFilters.includes(result.type));
+  const filteredResults = useMemo(() => {
+    // If no filters are active, show all results
+    if (activeFilters.length === 0) {
+      return results;
+    }
+    // Otherwise, filter by active types
+    return results.filter((result) => activeFilters.includes(result.type));
+  }, [results, activeFilters]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [query, activeFilters, results]);
+
+  const visibleResults = filteredResults.slice(0, visibleCount);
 
   if (filteredResults.length === 0) {
     return (
@@ -17,12 +46,13 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
         <div className="text-gray-400 mb-4">
           <FileText className="w-16 h-16 mx-auto" />
         </div>
-        <h3 className="text-xl font-light text-gray-700 mb-2">No results found</h3>
+        <h3 className="text-xl font-light text-gray-700 mb-2">
+          No results found
+        </h3>
         <p className="text-gray-500 font-light">
-          {results.length > 0 
+          {results.length > 0
             ? "Try adjusting your filters to see more results"
-            : "Try adjusting your search terms or exploring different keywords"
-          }
+            : "Try adjusting your search terms or exploring different keywords"}
         </p>
       </div>
     );
@@ -30,7 +60,8 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 80) return "bg-green-100 text-green-800 border-green-200";
-    if (confidence >= 60) return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    if (confidence >= 60)
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-orange-100 text-orange-800 border-orange-200";
   };
 
@@ -46,13 +77,17 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
         <h2 className="text-2xl font-light text-gray-900 mb-2">
           Search Results for "{query}"
         </h2>
-        <p className="text-gray-600 font-light">
-          Found {filteredResults.length} {filteredResults.length === 1 ? "result" : "results"}
+        <p className="text-gray-600 font-light mb-1">
+          Found {filteredResults.length}{" "}
+          {filteredResults.length === 1 ? "result" : "results"}
+        </p>
+        <p className="text-sm text-gray-500 font-light">
+          Showing {visibleResults.length} of {filteredResults.length}
         </p>
       </div>
 
       <div className="space-y-6">
-        {filteredResults.map((result, index) => (
+        {visibleResults.map((result, index) => (
           <div
             key={index}
             className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
@@ -85,7 +120,9 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
                   </div>
                 )}
               </div>
-              <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getConfidenceColor(result.confidence)}`}>
+              <div
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${getConfidenceColor(result.confidence)}`}
+              >
                 {result.confidence}% · {getConfidenceLabel(result.confidence)}
               </div>
             </div>
@@ -105,7 +142,7 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
                   <p className="text-sm text-gray-600 mb-3">
                     {result.data.title} · {result.data.department}
                   </p>
-                  
+
                   {/* Research Interests - Prominent Display */}
                   <div className="mb-4">
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
@@ -126,7 +163,7 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
                   {/* AI Justification */}
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
                     <p className="text-sm text-blue-900 font-light">
-                      <span className="font-medium">AI Match Summary: </span>
+                      <span className="font-medium">Match Summary: </span>
                       {result.aiJustification}
                     </p>
                   </div>
@@ -152,7 +189,7 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
                         {result.data.phone}
                       </a>
                       <a
-                        href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello Dr. ${result.data.name.split(' ').pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research in ${result.data.researchInterests[0]}.%0D%0A%0D%0A`}
+                        href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello Dr. ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research in ${result.data.researchInterests[0]}.%0D%0A%0D%0A`}
                         className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
                       >
                         <Mail className="w-4 h-4" />
@@ -187,147 +224,176 @@ export function SearchResults({ results, query, activeFilters }: SearchResultsPr
             )}
 
             {/* Paper Result */}
-            {result.type === "paper" && "title" in result.data && "abstract" in result.data && (
-              <div>
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  {result.data.title}
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  {result.data.authors.join(", ")} · {result.data.year}
-                </p>
-
-                {/* AI Justification */}
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
-                  <p className="text-sm text-blue-900 font-light">
-                    <span className="font-medium">AI Summary: </span>
-                    {result.aiJustification}
-                  </p>
-                </div>
-
-                {/* Abstract */}
-                <p className="text-sm text-gray-700 font-light mb-3 line-clamp-3">
-                  {result.data.abstract}
-                </p>
-
-                {/* Matched Keywords & Link */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    {result.matchedKeywords.slice(0, 4).map((keyword, i) => (
-                      <span
-                        key={i}
-                        className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
-                  </div>
-                  <a
-                    href={result.data.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
-                  >
-                    View Paper
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* Patent Result */}
-            {result.type === "patent" && "title" in result.data && "patentNumber" in result.data && (
-              <div>
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  {result.data.title}
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  {result.data.inventors.join(", ")} · Patent: {result.data.patentNumber} · {result.data.year}
-                </p>
-
-                {/* AI Justification */}
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
-                  <p className="text-sm text-blue-900 font-light">
-                    <span className="font-medium">AI Summary: </span>
-                    {result.aiJustification}
-                  </p>
-                </div>
-
-                {/* Description */}
-                <p className="text-sm text-gray-700 font-light mb-3">
-                  {result.data.description}
-                </p>
-
-                {/* Matched Keywords & Link */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    {result.matchedKeywords.slice(0, 4).map((keyword, i) => (
-                      <span
-                        key={i}
-                        className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
-                  </div>
-                  <a
-                    href={result.data.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
-                  >
-                    View Patent
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* Project Result */}
-            {result.type === "project" && "title" in result.data && "status" in result.data && (
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-xl font-medium text-gray-900">
+            {result.type === "paper" &&
+              "title" in result.data &&
+              "abstract" in result.data && (
+                <div>
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">
                     {result.data.title}
                   </h3>
-                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                    result.data.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                  }`}>
-                    {result.data.status}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">
-                  Lead Faculty: {result.data.leadFaculty.join(", ")} · Started: {result.data.startDate}
-                </p>
-
-                {/* AI Justification */}
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
-                  <p className="text-sm text-blue-900 font-light">
-                    <span className="font-medium">AI Summary: </span>
-                    {result.aiJustification}
+                  <p className="text-sm text-gray-600 mb-3">
+                    {result.data.authors.join(", ")} · {result.data.year}
                   </p>
-                </div>
 
-                {/* Description */}
-                <p className="text-sm text-gray-700 font-light mb-3">
-                  {result.data.description}
-                </p>
+                  {/* AI Justification */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
+                    <p className="text-sm text-blue-900 font-light">
+                      <span className="font-medium">Match Summary: </span>
+                      {result.aiJustification}
+                    </p>
+                  </div>
 
-                {/* Matched Keywords */}
-                <div className="flex flex-wrap gap-2">
-                  {result.matchedKeywords.slice(0, 5).map((keyword, i) => (
-                    <span
-                      key={i}
-                      className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium"
+                  {/* Abstract */}
+                  <p className="text-sm text-gray-700 font-light mb-3 line-clamp-3">
+                    {result.data.abstract}
+                  </p>
+
+                  {/* Matched Keywords & Link */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      {result.matchedKeywords.slice(0, 4).map((keyword, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                    <a
+                      href={result.data.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
                     >
-                      {keyword}
-                    </span>
-                  ))}
+                      View Paper
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+            {/* Patent Result */}
+            {result.type === "patent" &&
+              "title" in result.data &&
+              "patentNumber" in result.data && (
+                <div>
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">
+                    {result.data.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    {result.data.inventors.join(", ")} · Patent:{" "}
+                    {result.data.patentNumber} · {result.data.year}
+                  </p>
+
+                  {/* AI Justification */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
+                    <p className="text-sm text-blue-900 font-light">
+                      <span className="font-medium">Match Summary: </span>
+                      {result.aiJustification}
+                    </p>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-sm text-gray-700 font-light mb-3">
+                    {result.data.description}
+                  </p>
+
+                  {/* Matched Keywords & Link */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      {result.matchedKeywords.slice(0, 4).map((keyword, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                    <a
+                      href={result.data.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
+                    >
+                      View Patent
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              )}
+
+            {/* Project Result */}
+            {result.type === "project" &&
+              "title" in result.data &&
+              "status" in result.data && (
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-xl font-medium text-gray-900">
+                      {result.data.title}
+                    </h3>
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full font-medium ${
+                        result.data.status === "Active"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {result.data.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Lead Faculty: {result.data.leadFaculty.join(", ")} ·
+                    Started: {result.data.startDate}
+                  </p>
+
+                  {/* AI Justification */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
+                    <p className="text-sm text-blue-900 font-light">
+                      <span className="font-medium">Match Summary: </span>
+                      {result.aiJustification}
+                    </p>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-sm text-gray-700 font-light mb-3">
+                    {result.data.description}
+                  </p>
+
+                  {/* Matched Keywords */}
+                  <div className="flex flex-wrap gap-2">
+                    {result.matchedKeywords.slice(0, 5).map((keyword, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
         ))}
       </div>
+
+      {visibleCount < filteredResults.length && (
+        <div className="mt-8 flex justify-center">
+          <button
+            type="button"
+            onClick={() =>
+              setVisibleCount((prev) =>
+                Math.min(prev + PAGE_SIZE, filteredResults.length),
+              )
+            }
+            className="px-5 py-2.5 rounded-full bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] text-sm font-medium transition-colors"
+          >
+            Load more (
+            {Math.min(PAGE_SIZE, filteredResults.length - visibleCount)} more)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
