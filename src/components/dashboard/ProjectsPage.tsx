@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -6,9 +6,11 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Plus, Edit2, Trash2, X, Save, Users, Calendar } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { Alert, AlertDescription } from "../ui/alert";
+import { projectsAPI } from "../../utils/api";
 
 interface Project {
-  id: string;
+  id: number | string;
   title: string;
   description: string;
   collaborators: string[];
@@ -23,10 +25,13 @@ interface Project {
 
 export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [error, setError] = useState("");
 
   const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  
+  const [editingId, setEditingId] = useState<number | string | null>(null);
+
   const [formData, setFormData] = useState<Omit<Project, "id">>({
     title: "",
     description: "",
@@ -37,48 +42,101 @@ export function ProjectsPage() {
     fundingSource: "",
     fundingAmount: "",
     keywords: [],
-    outcomes: ""
+    outcomes: "",
   });
 
   const [collaboratorInput, setCollaboratorInput] = useState("");
   const [keywordInput, setKeywordInput] = useState("");
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  useEffect(() => {
+    const loadProjects = async () => {
+      setIsLoadingProjects(true);
+      setError("");
+
+      try {
+        const data = await projectsAPI.getAll();
+        const rows = Array.isArray(data) ? data : data?.results || [];
+
+        setProjects(
+          rows.map((project: any, index: number) => ({
+            id: project?.id ?? Date.now() + index,
+            title: project?.title ?? "",
+            description: project?.description ?? "",
+            collaborators: Array.isArray(project?.collaborators)
+              ? project.collaborators
+              : [],
+            startDate: project?.start_date ?? project?.startDate ?? "",
+            endDate: project?.end_date ?? project?.endDate ?? "",
+            status:
+              project?.status === "active" ||
+              project?.status === "completed" ||
+              project?.status === "planning"
+                ? project.status
+                : "planning",
+            fundingSource:
+              project?.funding_source ?? project?.fundingSource ?? "",
+            fundingAmount:
+              project?.funding_amount ?? project?.fundingAmount ?? "",
+            keywords: Array.isArray(project?.keywords) ? project.keywords : [],
+            outcomes: project?.outcomes ?? "",
+          })),
+        );
+      } catch (err: any) {
+        setError(err?.message || "Unable to load projects.");
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+
+    loadProjects();
+  }, []);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleAddCollaborator = () => {
-    if (collaboratorInput.trim() && !formData.collaborators.includes(collaboratorInput.trim())) {
-      setFormData(prev => ({
+    if (
+      collaboratorInput.trim() &&
+      !formData.collaborators.includes(collaboratorInput.trim())
+    ) {
+      setFormData((prev) => ({
         ...prev,
-        collaborators: [...prev.collaborators, collaboratorInput.trim()]
+        collaborators: [...prev.collaborators, collaboratorInput.trim()],
       }));
       setCollaboratorInput("");
     }
   };
 
   const handleRemoveCollaborator = (collaborator: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      collaborators: prev.collaborators.filter(c => c !== collaborator)
+      collaborators: prev.collaborators.filter((c) => c !== collaborator),
     }));
   };
 
   const handleAddKeyword = () => {
-    if (keywordInput.trim() && !formData.keywords.includes(keywordInput.trim())) {
-      setFormData(prev => ({
+    if (
+      keywordInput.trim() &&
+      !formData.keywords.includes(keywordInput.trim())
+    ) {
+      setFormData((prev) => ({
         ...prev,
-        keywords: [...prev.keywords, keywordInput.trim()]
+        keywords: [...prev.keywords, keywordInput.trim()],
       }));
       setKeywordInput("");
     }
   };
 
   const handleRemoveKeyword = (keyword: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      keywords: prev.keywords.filter(k => k !== keyword)
+      keywords: prev.keywords.filter((k) => k !== keyword),
     }));
   };
 
@@ -94,7 +152,7 @@ export function ProjectsPage() {
       fundingSource: "",
       fundingAmount: "",
       keywords: [],
-      outcomes: ""
+      outcomes: "",
     });
   };
 
@@ -110,32 +168,68 @@ export function ProjectsPage() {
       fundingSource: project.fundingSource,
       fundingAmount: project.fundingAmount,
       keywords: project.keywords,
-      outcomes: project.outcomes
+      outcomes: project.outcomes,
     });
   };
 
-  const handleSave = () => {
-    if (editingId) {
-      setProjects(prev => prev.map(p => 
-        p.id === editingId ? { ...formData, id: editingId } : p
-      ));
-      setEditingId(null);
-    } else {
-      setProjects(prev => [...prev, { ...formData, id: Date.now().toString() }]);
-      setIsAdding(false);
+  const handleSave = async () => {
+    setIsSavingProject(true);
+    setError("");
+
+    const payload = {
+      title: formData.title,
+      description: formData.description,
+      collaborators: formData.collaborators,
+      start_date: formData.startDate,
+      end_date: formData.endDate,
+      status: formData.status,
+      funding_source: formData.fundingSource,
+      funding_amount: formData.fundingAmount,
+      keywords: formData.keywords,
+      outcomes: formData.outcomes,
+    };
+
+    try {
+      if (editingId !== null) {
+        const updated = await projectsAPI.update(Number(editingId), payload);
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === editingId
+              ? {
+                  ...p,
+                  ...formData,
+                  id: updated?.id ?? editingId,
+                }
+              : p,
+          ),
+        );
+        setEditingId(null);
+      } else {
+        const created = await projectsAPI.create(payload);
+        setProjects((prev) => [
+          ...prev,
+          { ...formData, id: created?.id ?? Date.now() },
+        ]);
+        setIsAdding(false);
+      }
+
+      setFormData({
+        title: "",
+        description: "",
+        collaborators: [],
+        startDate: "",
+        endDate: "",
+        status: "planning",
+        fundingSource: "",
+        fundingAmount: "",
+        keywords: [],
+        outcomes: "",
+      });
+    } catch (err: any) {
+      setError(err?.message || "Unable to save project.");
+    } finally {
+      setIsSavingProject(false);
     }
-    setFormData({
-      title: "",
-      description: "",
-      collaborators: [],
-      startDate: "",
-      endDate: "",
-      status: "planning",
-      fundingSource: "",
-      fundingAmount: "",
-      keywords: [],
-      outcomes: ""
-    });
   };
 
   const handleCancel = () => {
@@ -151,13 +245,19 @@ export function ProjectsPage() {
       fundingSource: "",
       fundingAmount: "",
       keywords: [],
-      outcomes: ""
+      outcomes: "",
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Are you sure you want to delete this project?")) {
-      setProjects(prev => prev.filter(p => p.id !== id));
+      setError("");
+      try {
+        await projectsAPI.delete(Number(id));
+        setProjects((prev) => prev.filter((p) => p.id !== id));
+      } catch (err: any) {
+        setError(err?.message || "Unable to delete project.");
+      }
     }
   };
 
@@ -178,15 +278,32 @@ export function ProjectsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-          <p className="text-gray-600 mt-1">Manage your research projects and collaborations</p>
+          <p className="text-gray-600 mt-1">
+            Manage your research projects and collaborations
+          </p>
         </div>
         {!isAdding && !editingId && (
-          <Button onClick={handleAdd} className="bg-[#8b0000] hover:bg-[#700000]">
+          <Button
+            onClick={handleAdd}
+            className="bg-[#8b0000] hover:bg-[#700000]"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Project
           </Button>
         )}
       </div>
+
+      {isLoadingProjects && (
+        <Alert>
+          <AlertDescription>Loading projects...</AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Add/Edit Form */}
       {(isAdding || editingId) && (
@@ -231,7 +348,10 @@ export function ProjectsPage() {
                   id="collaborators"
                   value={collaboratorInput}
                   onChange={(e) => setCollaboratorInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddCollaborator())}
+                  onKeyPress={(e) =>
+                    e.key === "Enter" &&
+                    (e.preventDefault(), handleAddCollaborator())
+                  }
                   placeholder="Add collaborator and press Enter"
                 />
                 <Button onClick={handleAddCollaborator} size="sm" type="button">
@@ -240,7 +360,11 @@ export function ProjectsPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {formData.collaborators.map((collaborator) => (
-                  <Badge key={collaborator} variant="secondary" className="gap-1">
+                  <Badge
+                    key={collaborator}
+                    variant="secondary"
+                    className="gap-1"
+                  >
                     <Users className="w-3 h-3 mr-1" />
                     {collaborator}
                     <button
@@ -321,7 +445,10 @@ export function ProjectsPage() {
                   id="keywords"
                   value={keywordInput}
                   onChange={(e) => setKeywordInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
+                  onKeyPress={(e) =>
+                    e.key === "Enter" &&
+                    (e.preventDefault(), handleAddKeyword())
+                  }
                   placeholder="Add keyword and press Enter"
                 />
                 <Button onClick={handleAddKeyword} size="sm" type="button">
@@ -356,9 +483,13 @@ export function ProjectsPage() {
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+              <Button
+                onClick={handleSave}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={isSavingProject}
+              >
                 <Save className="w-4 h-4 mr-2" />
-                Save Project
+                {isSavingProject ? "Saving..." : "Save Project"}
               </Button>
               <Button onClick={handleCancel} variant="outline">
                 Cancel
@@ -382,7 +513,7 @@ export function ProjectsPage() {
                     {project.status}
                   </Badge>
                 </div>
-                
+
                 <p className="text-gray-700 mb-4">{project.description}</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
@@ -390,14 +521,17 @@ export function ProjectsPage() {
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Calendar className="w-4 h-4" />
                       <span>
-                        {new Date(project.startDate).toLocaleDateString()} - {' '}
-                        {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Ongoing'}
+                        {new Date(project.startDate).toLocaleDateString()} -{" "}
+                        {project.endDate
+                          ? new Date(project.endDate).toLocaleDateString()
+                          : "Ongoing"}
                       </span>
                     </div>
                   )}
                   {project.fundingSource && (
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Funding:</span> {project.fundingSource}
+                      <span className="font-semibold">Funding:</span>{" "}
+                      {project.fundingSource}
                       {project.fundingAmount && ` (${project.fundingAmount})`}
                     </div>
                   )}
@@ -405,10 +539,16 @@ export function ProjectsPage() {
 
                 {project.collaborators.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Collaborators:</p>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">
+                      Collaborators:
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {project.collaborators.map((collaborator) => (
-                        <Badge key={collaborator} variant="outline" className="gap-1">
+                        <Badge
+                          key={collaborator}
+                          variant="outline"
+                          className="gap-1"
+                        >
                           <Users className="w-3 h-3" />
                           {collaborator}
                         </Badge>
@@ -419,7 +559,9 @@ export function ProjectsPage() {
 
                 {project.keywords.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Keywords:</p>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">
+                      Keywords:
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {project.keywords.map((keyword) => (
                         <Badge key={keyword} variant="secondary">
@@ -432,7 +574,9 @@ export function ProjectsPage() {
 
                 {project.outcomes && (
                   <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-semibold text-gray-700 mb-1">Outcomes & Results:</p>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">
+                      Outcomes & Results:
+                    </p>
                     <p className="text-sm text-gray-600">{project.outcomes}</p>
                   </div>
                 )}
@@ -463,7 +607,9 @@ export function ProjectsPage() {
 
         {projects.length === 0 && !isAdding && (
           <Card className="p-12 text-center">
-            <p className="text-gray-500">No projects added yet. Click "Add Project" to get started.</p>
+            <p className="text-gray-500">
+              No projects added yet. Click "Add Project" to get started.
+            </p>
           </Card>
         )}
       </div>

@@ -1,17 +1,16 @@
 import { Button } from "./ui/button";
 import { ArrowRight, Target, Network, Building2, BarChart3, MessageSquare, Users, Zap, Shield, Headphones } from "lucide-react";
 import { Navbar } from "./Navbar";
-import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
 
 interface AboutProps {
-  onNavigate: (page: "home" | "about" | "faculty-login" | "admin-login") => void;
+  onNavigate: (path: string) => void;
 }
 
 export function About({ onNavigate }: AboutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Header */}
-      <Navbar onNavigate={onNavigate} currentPage="about" />
+      <Navbar onNavigate={onNavigate} currentPath="/about" />
 
       {/* Main Content */}
       <main className="flex-1">
@@ -128,7 +127,7 @@ export function About({ onNavigate }: AboutProps) {
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
               <Button
-                onClick={() => onNavigate("faculty-login")}
+                onClick={() => onNavigate("/faculty-login")}
                 className="bg-[#8b0000] hover:bg-[#700000] text-white px-8 py-6 text-base"
               >
                 Already Have Access? Login Now
@@ -212,7 +211,7 @@ export function About({ onNavigate }: AboutProps) {
               <ul className="space-y-3">
                 <li>
                   <button
-                    onClick={() => onNavigate("about")}
+                    onClick={() => onNavigate("/about")}
                     className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
                   >
                     SCOUP Overview

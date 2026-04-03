@@ -8,18 +8,61 @@ import { SettingsPage } from "./dashboard/SettingsPage";
 import { AnalyticsPage } from "./dashboard/AnalyticsPage";
 import { NetworkPage } from "./dashboard/NetworkPage";
 import { BadgesWidget } from "./dashboard/BadgesWidget";
+import { DashboardOverview } from "./dashboard/DashboardOverview";
 import { Button } from "./ui/button";
-import { LogOut, User, FileText, Lightbulb, FolderOpen, Upload, Settings, BarChart3, Network, Trophy } from "lucide-react";
+import {
+  LogOut,
+  User,
+  FileText,
+  Lightbulb,
+  FolderOpen,
+  Upload,
+  Settings,
+  BarChart3,
+  Network,
+  Trophy,
+  Home,
+} from "lucide-react";
 
 interface FacultyDashboardProps {
   onLogout: () => void;
 }
 
 export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"profile" | "papers" | "patents" | "projects" | "upload" | "settings" | "analytics" | "network" | "badges">("profile");
+  const [activeTab, setActiveTab] = useState<
+    | "overview"
+    | "profile"
+    | "papers"
+    | "patents"
+    | "projects"
+    | "upload"
+    | "settings"
+    | "analytics"
+    | "network"
+    | "badges"
+  >("overview");
+
+  const handleNavigate = (tab: string) => {
+    if (
+      tab === "overview" ||
+      tab === "profile" ||
+      tab === "papers" ||
+      tab === "patents" ||
+      tab === "projects" ||
+      tab === "upload" ||
+      tab === "settings" ||
+      tab === "analytics" ||
+      tab === "network" ||
+      tab === "badges"
+    ) {
+      setActiveTab(tab);
+    }
+  };
 
   const renderContent = () => {
     switch (activeTab) {
+      case "overview":
+        return <DashboardOverview onNavigate={handleNavigate} />;
       case "profile":
         return <ProfilePage />;
       case "papers":
@@ -43,7 +86,7 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
           </div>
         );
       default:
-        return <ProfilePage />;
+        return <DashboardOverview onNavigate={handleNavigate} />;
     }
   };
 
@@ -66,6 +109,19 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg font-medium transition-colors ${
+              activeTab === "overview"
+                ? "bg-[#8b0000] text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Home className="w-5 h-5" />
+              Overview
+            </div>
+          </button>
           <button
             onClick={() => setActiveTab("profile")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
@@ -182,9 +238,7 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="p-8">
-          {renderContent()}
-        </div>
+        <div className="p-8">{renderContent()}</div>
       </main>
     </div>
   );

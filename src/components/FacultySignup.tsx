@@ -1,10 +1,25 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Eye, EyeOff, Lock, Mail, University, ArrowLeft, User } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  University,
+  ArrowLeft,
+  User,
+} from "lucide-react";
+import { authAPI } from "../utils/api";
 
 interface FacultySignupProps {
   onBack?: () => void;
@@ -19,7 +34,7 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
     firstName: "",
     lastName: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,7 +45,14 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
     setError("");
 
     // Validate fields
-    if (!formData.email || !formData.username || !formData.firstName || !formData.lastName || !formData.password || !formData.confirmPassword) {
+    if (
+      !formData.email ||
+      !formData.username ||
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.password ||
+      !formData.confirmPassword
+    ) {
       setError("Please fill in all fields");
       setIsLoading(false);
       return;
@@ -42,37 +64,38 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
       return;
     }
 
-    if (!formData.email.endsWith("@salisbury.edu")) {
-      setError("Please use a valid Salisbury University email address");
-      setIsLoading(false);
-      return;
-    }
+    // if (!formData.email.endsWith("@salisbury.edu")) {
+    //   setError("Please use a valid Salisbury University email address");
+    //   setIsLoading(false);
+    //   return;
+    // }
 
     try {
-      // Simulate signup process - replace with real API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Signup data:", {
-        email: formData.email,
+      // Call Django backend registration API
+      await authAPI.register({
         username: formData.username,
+        email: formData.email,
+        password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        password: formData.password
       });
-      
-      // Handle successful signup - this is where you'll integrate with your database
-      if (onSignupSuccess) {
-        onSignupSuccess();
-      }
-    } catch (err) {
-      setError("Signup failed. Please try again.");
+
+      await authAPI.login(formData.username, formData.password);
+
+      console.log("Signup successful");
+
+      // Handle successful signup
+      onSignupSuccess?.();
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      setError(err.message || "Signup failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (error) setError("");
   };
 
@@ -94,9 +117,9 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl">Sign Up</CardTitle>
               {onBack && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={onBack}
                   className="h-8 w-8 p-0"
                 >
@@ -108,7 +131,7 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
               Join SCOUP to connect and collaborate with your colleagues
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
@@ -143,7 +166,9 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                     type="text"
                     placeholder="Choose a username"
                     value={formData.username}
-                    onChange={(e) => handleInputChange("username", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("username", e.target.value)
+                    }
                     className="pl-10"
                     required
                   />
@@ -160,7 +185,9 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                     type="text"
                     placeholder="John"
                     value={formData.firstName}
-                    onChange={(e) => handleInputChange("firstName", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("firstName", e.target.value)
+                    }
                     required
                   />
                 </div>
@@ -171,7 +198,9 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                     type="text"
                     placeholder="Doe"
                     value={formData.lastName}
-                    onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("lastName", e.target.value)
+                    }
                     required
                   />
                 </div>
@@ -186,7 +215,9 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                     type={showPassword ? "text" : "password"}
                     placeholder="Create a password"
                     value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("password", e.target.value)
+                    }
                     className="pl-10 pr-10"
                     required
                   />
@@ -216,7 +247,9 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                     type={showPassword ? "text" : "password"}
                     placeholder="Confirm your password"
                     value={formData.confirmPassword}
-                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("confirmPassword", e.target.value)
+                    }
                     className="pl-10"
                     required
                   />
@@ -224,11 +257,7 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
@@ -237,8 +266,8 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
               <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
                 {onBack && (
-                  <Button 
-                    variant="link" 
+                  <Button
+                    variant="link"
                     className="px-0 text-sm"
                     onClick={onBack}
                   >

@@ -1,10 +1,20 @@
-import { useState } from "react";
-import { Users, Search, Mail, Building2, FolderOpen, Sparkles, TrendingUp, AlertCircle, ExternalLink, Filter } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Users,
+  Search,
+  Mail,
+  Building2,
+  FolderOpen,
+  Sparkles,
+  AlertCircle,
+  ExternalLink,
+  Filter,
+} from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { facultyData, projectsData } from "../../data/searchData";
+import { authAPI, facultyAPI, projectsAPI } from "../../utils/api";
 
-interface ColleagueMatch {
+type ColleagueMatch = {
   id: string;
   name: string;
   title: string;
@@ -15,121 +25,188 @@ interface ColleagueMatch {
   matchScore: number;
   matchReason: string;
   sharedKeywords: string[];
-}
+};
 
-interface ProjectOpportunity {
+type ProjectOpportunity = {
   id: string;
   title: string;
   leadFaculty: string[];
   department: string;
   description: string;
   status: string;
-  lookingForCollaborators: boolean;
   relevanceScore: number;
   relevanceReason: string;
-}
+};
+
+const normalizePhotoUrl = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) return "";
+  const raw = value.trim();
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  const configuredApi = import.meta.env.VITE_API_BASE_URL || "";
+  if (!configuredApi) return raw;
+  try {
+    const origin = new URL(configuredApi).origin;
+    if (!raw.startsWith("/")) return `${origin}/media/${raw.replace(/^media\//, "")}`;
+    return `${origin}${raw}`;
+  } catch {
+    return raw;
+  }
+};
+
+const toKeywordList = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((x) => x.trim()).filter(Boolean);
+  return [];
+};
 
 export function NetworkPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"colleagues" | "projects">("colleagues");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock current user's interests (in real app, this would come from logged-in user's profile)
-  const currentUserInterests = ["Machine Learning", "Artificial Intelligence", "Data Science", "Natural Language Processing"];
+  const [currentUserInterests, setCurrentUserInterests] = useState<string[]>([]);
+  const [colleagueMatches, setColleagueMatches] = useState<ColleagueMatch[]>([]);
+  const [projectOpportunities, setProjectOpportunities] = useState<ProjectOpportunity[]>([]);
 
-  // Generate colleague matches based on overlapping interests
-  const generateColleagueMatches = (): ColleagueMatch[] => {
-    return facultyData.map(faculty => {
-      const sharedKeywords = faculty.researchInterests.filter(interest =>
-        currentUserInterests.some(userInterest =>
-          interest.toLowerCase().includes(userInterest.toLowerCase()) ||
-          userInterest.toLowerCase().includes(interest.toLowerCase())
-        )
-      );
+  useEffect(() => {
+    const loadNetworkData = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const [me, facultyRows, projectRows] = await Promise.all([
+          authAPI.me(),
+          facultyAPI.getAll(),
+          projectsAPI.getAll(),
+        ]);
 
-      const matchScore = Math.min(95, 45 + (sharedKeywords.length * 15) + Math.floor(Math.random() * 20));
+        const myKeywords = toKeywordList(me?.keywords)
+          .concat(toKeywordList(me?.faculty_keywords))
+          .concat(toKeywordList(me?.ai_keywords));
+        const normalizedMine = Array.from(new Set(myKeywords.map((k) => k.toLowerCase())));
+        setCurrentUserInterests(normalizedMine);
 
-      let matchReason = "";
-      if (sharedKeywords.length >= 3) {
-        matchReason = `Strong alignment in ${sharedKeywords.slice(0, 3).join(", ")}. Excellent potential for cross-departmental collaboration.`;
-      } else if (sharedKeywords.length >= 2) {
-        matchReason = `Shared expertise in ${sharedKeywords.join(" and ")}. Good opportunity for interdisciplinary research.`;
-      } else if (sharedKeywords.length === 1) {
-        matchReason = `Common interest in ${sharedKeywords[0]}. Potential for collaborative projects in this area.`;
-      } else {
-        matchReason = `Complementary expertise in ${faculty.department}. Could provide unique perspectives for your research.`;
+        const facultyList = Array.isArray(facultyRows)
+          ? facultyRows
+          : Array.isArray(facultyRows?.results)
+            ? facultyRows.results
+            : [];
+
+        const meId = me?.id;
+
+        const colleagues: ColleagueMatch[] = facultyList
+          .filter((f: any) => String(f?.id) !== String(meId))
+          .map((faculty: any) => {
+            const interests = toKeywordList(faculty?.keywords)
+              .concat(toKeywordList(faculty?.faculty_keywords))
+              .concat(toKeywordList(faculty?.ai_keywords))
+              .concat(toKeywordList(faculty?.research_interests));
+            const normalizedInterests = interests.map((k) => k.toLowerCase());
+            const sharedKeywords = normalizedInterests.filter((k) => normalizedMine.includes(k));
+            const uniqueShared = Array.from(new Set(sharedKeywords));
+            const matchScore = Math.min(95, normalizedMine.length === 0 ? 55 : 50 + uniqueShared.length * 12);
+
+            const matchReason =
+              uniqueShared.length > 0
+                ? `Shared expertise in ${uniqueShared.slice(0, 3).join(", ")}.`
+                : `Complementary expertise in ${faculty?.department || "related fields"}.`;
+
+            const name =
+              faculty?.name || `${faculty?.first_name || ""} ${faculty?.last_name || ""}`.trim() || "Faculty";
+
+            return {
+              id: String(faculty?.id ?? ""),
+              name,
+              title: faculty?.title || "",
+              department: faculty?.department || "",
+              photo: normalizePhotoUrl(faculty?.photo || faculty?.profile_photo),
+              email: faculty?.email || "",
+              researchInterests: interests,
+              matchScore,
+              matchReason,
+              sharedKeywords: uniqueShared,
+            };
+          })
+          .sort((a, b) => b.matchScore - a.matchScore);
+
+        setColleagueMatches(colleagues);
+
+        const projectsList = Array.isArray(projectRows)
+          ? projectRows
+          : Array.isArray(projectRows?.results)
+            ? projectRows.results
+            : [];
+
+        const opportunities: ProjectOpportunity[] = projectsList.map((project: any) => {
+          const projectKeywords = toKeywordList(project?.keywords).map((k) => k.toLowerCase());
+          const overlap = projectKeywords.filter((k) => normalizedMine.includes(k));
+          const score = Math.min(95, 52 + overlap.length * 10);
+
+          return {
+            id: String(project?.id ?? ""),
+            title: project?.title || "Untitled project",
+            leadFaculty: Array.isArray(project?.leadFaculty)
+              ? project.leadFaculty
+              : Array.isArray(project?.faculty)
+                ? project.faculty.map((f: any) => String(f?.name || f || ""))
+                : [],
+            department: project?.department || "",
+            description: project?.description || "",
+            status: project?.status || "active",
+            relevanceScore: score,
+            relevanceReason:
+              overlap.length > 0
+                ? `Keyword overlap: ${overlap.slice(0, 3).join(", ")}.`
+                : "Potential interdisciplinary fit.",
+          };
+        });
+
+        setProjectOpportunities(opportunities.sort((a, b) => b.relevanceScore - a.relevanceScore));
+      } catch (err: any) {
+        setError(err?.message || "Unable to load collaboration network.");
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      return {
-        id: faculty.id,
-        name: faculty.name,
-        title: faculty.title,
-        department: faculty.department,
-        photo: faculty.photo,
-        email: faculty.email,
-        researchInterests: faculty.researchInterests,
-        matchScore,
-        matchReason,
-        sharedKeywords,
-      };
-    }).sort((a, b) => b.matchScore - a.matchScore);
-  };
+    loadNetworkData();
+  }, []);
 
-  // Generate project opportunities
-  const generateProjectOpportunities = (): ProjectOpportunity[] => {
-    return projectsData.map(project => {
-      const relevanceScore = Math.min(95, 50 + Math.floor(Math.random() * 45));
-      const lookingForCollaborators = Math.random() > 0.5;
+  const filteredColleagues = useMemo(
+    () =>
+      colleagueMatches.filter((colleague) => {
+        const q = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+          q.length === 0 ||
+          colleague.name.toLowerCase().includes(q) ||
+          colleague.department.toLowerCase().includes(q) ||
+          colleague.researchInterests.some((interest) => interest.toLowerCase().includes(q));
 
-      let relevanceReason = "";
-      if (relevanceScore >= 80) {
-        relevanceReason = `Your expertise in ${currentUserInterests[0]} aligns perfectly with this project's objectives. The team is actively seeking co-PIs.`;
-      } else if (relevanceScore >= 65) {
-        relevanceReason = `Your background could complement this project's current team. Consider reaching out to explore collaboration opportunities.`;
-      } else {
-        relevanceReason = `This project shares some thematic overlap with your research interests. Potential for cross-pollination of ideas.`;
-      }
+        const matchesDepartment = departmentFilter === "all" || colleague.department === departmentFilter;
+        return matchesSearch && matchesDepartment;
+      }),
+    [colleagueMatches, searchQuery, departmentFilter],
+  );
 
-      return {
-        id: project.id,
-        title: project.title,
-        leadFaculty: project.leadFaculty,
-        department: project.leadFaculty.join(", "),
-        description: project.description,
-        status: project.status,
-        lookingForCollaborators,
-        relevanceScore,
-        relevanceReason,
-      };
-    }).sort((a, b) => b.relevanceScore - a.relevanceScore);
-  };
+  const filteredProjects = useMemo(
+    () =>
+      projectOpportunities.filter((project) => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          q.length === 0 ||
+          project.title.toLowerCase().includes(q) ||
+          project.description.toLowerCase().includes(q) ||
+          project.leadFaculty.some((faculty) => faculty.toLowerCase().includes(q))
+        );
+      }),
+    [projectOpportunities, searchQuery],
+  );
 
-  const colleagueMatches = generateColleagueMatches();
-  const projectOpportunities = generateProjectOpportunities();
-
-  // Filter based on search and department
-  const filteredColleagues = colleagueMatches.filter(colleague => {
-    const matchesSearch = searchQuery === "" ||
-      colleague.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      colleague.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      colleague.researchInterests.some(interest => interest.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesDepartment = departmentFilter === "all" || colleague.department === departmentFilter;
-
-    return matchesSearch && matchesDepartment;
-  });
-
-  const filteredProjects = projectOpportunities.filter(project => {
-    const matchesSearch = searchQuery === "" ||
-      project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.leadFaculty.some(faculty => faculty.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    return matchesSearch;
-  });
-
-  // Get unique departments for filter
-  const departments = ["all", ...new Set(facultyData.map(f => f.department))];
+  const departments = useMemo(
+    () => ["all", ...Array.from(new Set(colleagueMatches.map((f) => f.department).filter(Boolean)))],
+    [colleagueMatches],
+  );
 
   const getMatchColor = (score: number) => {
     if (score >= 80) return "bg-green-100 text-green-800 border-green-200";
@@ -145,7 +222,6 @@ export function NetworkPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Collaboration Network</h1>
         <p className="text-gray-600 mt-1">
@@ -153,22 +229,22 @@ export function NetworkPage() {
         </p>
       </div>
 
-      {/* Info Banner */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+      )}
+
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
           <Sparkles className="w-5 h-5 text-[#8b0000] flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">
-              AI-Powered Collaboration Discovery
-            </p>
+            <p className="text-sm font-medium text-gray-900 mb-1">Live Collaboration Discovery</p>
             <p className="text-sm text-gray-700">
-              Based on your profile and research interests, we've identified colleagues and projects that align with your expertise. Match scores indicate collaboration potential.
+              Matches are generated from current profile keywords and live faculty/project endpoint data.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Search and Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
@@ -187,9 +263,9 @@ export function NetworkPage() {
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b0000] focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b0000]"
               >
-                {departments.map(dept => (
+                {departments.map((dept) => (
                   <option key={dept} value={dept}>
                     {dept === "all" ? "All Departments" : dept}
                   </option>
@@ -200,7 +276,6 @@ export function NetworkPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="border-b border-gray-200">
         <div className="flex gap-6">
           <button
@@ -232,8 +307,9 @@ export function NetworkPage() {
         </div>
       </div>
 
-      {/* Colleagues Tab */}
-      {activeTab === "colleagues" && (
+      {isLoading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-600">Loading collaboration data...</div>
+      ) : activeTab === "colleagues" ? (
         <div className="space-y-4">
           {filteredColleagues.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -242,30 +318,22 @@ export function NetworkPage() {
               <p className="text-gray-600">Try adjusting your search or filters</p>
             </div>
           ) : (
-            filteredColleagues.map(colleague => (
-              <div
-                key={colleague.id}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-              >
+            filteredColleagues.map((colleague) => (
+              <div key={colleague.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start gap-6">
-                  {/* Profile Photo */}
-                  <img
-                    src={colleague.photo}
-                    alt={colleague.name}
-                    className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                  />
+                  <div className="w-20 h-20 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
+                    {colleague.photo ? (
+                      <img src={colleague.photo} alt={colleague.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-500">{colleague.name.slice(0, 1)}</div>
+                    )}
+                  </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    {/* Header with Match Score */}
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="text-xl font-medium text-gray-900 mb-1">
-                          {colleague.name}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {colleague.title}
-                        </p>
+                        <h3 className="text-xl font-medium text-gray-900 mb-1">{colleague.name}</h3>
+                        <p className="text-sm text-gray-600">{colleague.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Building2 className="w-4 h-4 text-gray-400" />
                           <p className="text-sm text-gray-600">{colleague.department}</p>
@@ -276,54 +344,31 @@ export function NetworkPage() {
                       </div>
                     </div>
 
-                    {/* AI Match Reason */}
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
-                      <p className="text-sm text-blue-900">
-                        <span className="font-medium">Why this match: </span>
-                        {colleague.matchReason}
-                      </p>
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3 text-sm text-gray-700">
+                      {colleague.matchReason}
                     </div>
 
-                    {/* Research Interests */}
-                    <div className="mb-3">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                        Research Interests
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {colleague.researchInterests.map((interest, i) => {
-                          const isShared = colleague.sharedKeywords.includes(interest);
-                          return (
-                            <span
-                              key={i}
-                              className={`px-3 py-1 text-xs rounded-full font-medium ${
-                                isShared
-                                  ? "bg-gradient-to-r from-[#8b0000] to-[#6b0000] text-white"
-                                  : "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {interest}
-                            </span>
-                          );
-                        })}
-                      </div>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {colleague.sharedKeywords.slice(0, 5).map((keyword) => (
+                        <span key={keyword} className="px-2 py-1 bg-[#ffd100]/20 text-[#8b0000] text-xs rounded-full">
+                          {keyword}
+                        </span>
+                      ))}
                     </div>
 
-                    {/* Contact Button */}
-                    <div className="flex items-center gap-3 pt-3 border-t border-gray-200">
-                      <Button
-                        className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100]"
-                        size="sm"
-                        onClick={() => window.location.href = `mailto:${colleague.email}?subject=Collaboration Opportunity via SCOUP&body=Hello ${colleague.name.split(' ')[0]},%0D%0A%0D%0AI came across your profile on SCOUP and was impressed by your work in ${colleague.sharedKeywords[0] || colleague.researchInterests[0]}. I'd love to discuss potential collaboration opportunities.%0D%0A%0D%0A`}
-                      >
-                        <Mail className="w-4 h-4 mr-2" />
-                        Request Collaboration
+                    <div className="flex items-center gap-3">
+                      {colleague.email && (
+                        <a href={`mailto:${colleague.email}`}>
+                          <Button size="sm" className="bg-[#8b0000] hover:bg-[#700000]">
+                            <Mail className="w-4 h-4 mr-2" />
+                            Contact
+                          </Button>
+                        </a>
+                      )}
+                      <Button size="sm" variant="outline">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        View Profile
                       </Button>
-                      <a
-                        href={`mailto:${colleague.email}`}
-                        className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors"
-                      >
-                        {colleague.email}
-                      </a>
                     </div>
                   </div>
                 </div>
@@ -331,85 +376,39 @@ export function NetworkPage() {
             ))
           )}
         </div>
-      )}
-
-      {/* Projects Tab */}
-      {activeTab === "projects" && (
+      ) : (
         <div className="space-y-4">
           {filteredProjects.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <FolderOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-              <p className="text-gray-600">Try adjusting your search</p>
+              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No project opportunities found</h3>
+              <p className="text-gray-600">Try a broader search query</p>
             </div>
           ) : (
-            filteredProjects.map(project => (
-              <div
-                key={project.id}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-              >
-                {/* Header with Relevance Score */}
+            filteredProjects.map((project) => (
+              <div key={project.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-medium text-gray-900">
-                        {project.title}
-                      </h3>
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                        project.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                      }`}>
-                        {project.status}
-                      </span>
-                      {project.lookingForCollaborators && (
-                        <span className="px-2 py-1 text-xs rounded-full font-medium bg-purple-100 text-purple-700 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          Seeking Collaborators
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Lead: {project.leadFaculty.join(", ")}
-                    </p>
+                    <h3 className="text-xl font-medium text-gray-900 mb-1">{project.title}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{project.description}</p>
+                    <div className="text-xs text-gray-500">Lead: {project.leadFaculty.join(", ") || "N/A"}</div>
                   </div>
                   <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getMatchColor(project.relevanceScore)}`}>
-                    {project.relevanceScore}% Match
+                    {project.relevanceScore}% Relevance
                   </div>
                 </div>
-
-                {/* AI Relevance Reason */}
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
-                  <p className="text-sm text-blue-900">
-                    <span className="font-medium">Why this project: </span>
-                    {project.relevanceReason}
-                  </p>
-                </div>
-
-                {/* Description */}
-                <p className="text-sm text-gray-700 mb-4">
-                  {project.description}
-                </p>
-
-                {/* Actions */}
-                <div className="flex items-center gap-3 pt-3 border-t border-gray-200">
-                  <Button
-                    className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100]"
-                    size="sm"
-                    onClick={() => {
-                      const leadEmail = facultyData.find(f => f.name === project.leadFaculty[0])?.email || "";
-                      window.location.href = `mailto:${leadEmail}?subject=Interest in ${project.title}&body=Hello,%0D%0A%0D%0AI found your project "${project.title}" on SCOUP and am interested in learning more about collaboration opportunities.%0D%0A%0D%0A`;
-                    }}
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    Express Interest
-                  </Button>
-                  <div className="flex items-center gap-1 text-sm text-gray-600">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>Reduce research duplication</span>
-                  </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
+                  {project.relevanceReason}
                 </div>
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {currentUserInterests.length === 0 && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+          Add keywords in your profile to improve collaboration matching.
         </div>
       )}
     </div>

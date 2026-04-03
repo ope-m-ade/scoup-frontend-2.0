@@ -1,6 +1,6 @@
 # SCOUP
 
-This is a code bundle for SCOUP. The original project is available at https://www.figma.com/design/rlpXrXJa0WsPNQvPgO6de7/Search-Database-Landing-Page.
+This is a code bundle for SCOUP. 
 
 ## Running the code
 

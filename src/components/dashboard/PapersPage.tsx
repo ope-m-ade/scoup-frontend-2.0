@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -7,9 +7,10 @@ import { Textarea } from "../ui/textarea";
 import { Plus, Edit2, Trash2, X, Save, ExternalLink, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
+import { papersAPI } from "../../utils/api";
 
 interface Paper {
-  id: string;
+  id: number | string;
   title: string;
   authors: string;
   journal: string;
@@ -22,9 +23,12 @@ interface Paper {
 
 export function PapersPage() {
   const [papers, setPapers] = useState<Paper[]>([]);
+  const [isLoadingPapers, setIsLoadingPapers] = useState(true);
+  const [isSavingPaper, setIsSavingPaper] = useState(false);
+  const [error, setError] = useState("");
 
   const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | string | null>(null);
   
   const [formData, setFormData] = useState<Omit<Paper, "id">>({
     title: "",
@@ -40,6 +44,43 @@ export function PapersPage() {
   const [keywordInput, setKeywordInput] = useState("");
   const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
   const [aiGeneratedKeywords, setAiGeneratedKeywords] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadPapers = async () => {
+      setIsLoadingPapers(true);
+      setError("");
+
+      try {
+        const data = await papersAPI.getAll();
+        const rows = Array.isArray(data) ? data : data?.results || [];
+
+        setPapers(
+          rows.map((paper: any, index: number) => ({
+            id: paper?.id ?? Date.now() + index,
+            title: paper?.title ?? "",
+            authors: paper?.authors ?? "",
+            journal: paper?.journal ?? "",
+            year: String(paper?.year ?? ""),
+            doi: paper?.doi ?? "",
+            abstract: paper?.abstract ?? "",
+            keywords: Array.isArray(paper?.keywords) ? paper.keywords : [],
+            status:
+              paper?.status === "published" ||
+              paper?.status === "in-review" ||
+              paper?.status === "draft"
+                ? paper.status
+                : "draft",
+          })),
+        );
+      } catch (err: any) {
+        setError(err?.message || "Unable to load papers.");
+      } finally {
+        setIsLoadingPapers(false);
+      }
+    };
+
+    loadPapers();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -91,26 +132,63 @@ export function PapersPage() {
     });
   };
 
-  const handleSave = () => {
-    if (editingId) {
-      setPapers(prev => prev.map(p => 
-        p.id === editingId ? { ...formData, id: editingId } : p
-      ));
-      setEditingId(null);
-    } else {
-      setPapers(prev => [...prev, { ...formData, id: Date.now().toString() }]);
-      setIsAdding(false);
+  const handleSave = async () => {
+    setIsSavingPaper(true);
+    setError("");
+
+    const payload = {
+      title: formData.title,
+      authors: formData.authors,
+      journal: formData.journal,
+      year: Number(formData.year) || formData.year,
+      doi: formData.doi,
+      abstract: formData.abstract,
+      keywords: formData.keywords,
+      status: formData.status,
+    };
+
+    try {
+      if (editingId !== null) {
+        const updated = await papersAPI.update(Number(editingId), payload);
+        setPapers((prev) =>
+          prev.map((p) =>
+            p.id === editingId
+              ? {
+                  ...p,
+                  ...formData,
+                  id: updated?.id ?? editingId,
+                }
+              : p,
+          ),
+        );
+        setEditingId(null);
+      } else {
+        const created = await papersAPI.create(payload);
+        setPapers((prev) => [
+          ...prev,
+          {
+            ...formData,
+            id: created?.id ?? Date.now(),
+          },
+        ]);
+        setIsAdding(false);
+      }
+
+      setFormData({
+        title: "",
+        authors: "",
+        journal: "",
+        year: "",
+        doi: "",
+        abstract: "",
+        keywords: [],
+        status: "draft"
+      });
+    } catch (err: any) {
+      setError(err?.message || "Unable to save paper.");
+    } finally {
+      setIsSavingPaper(false);
     }
-    setFormData({
-      title: "",
-      authors: "",
-      journal: "",
-      year: "",
-      doi: "",
-      abstract: "",
-      keywords: [],
-      status: "draft"
-    });
   };
 
   const handleCancel = () => {
@@ -128,9 +206,15 @@ export function PapersPage() {
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Are you sure you want to delete this paper?")) {
-      setPapers(prev => prev.filter(p => p.id !== id));
+      setError("");
+      try {
+        await papersAPI.delete(Number(id));
+        setPapers(prev => prev.filter(p => p.id !== id));
+      } catch (err: any) {
+        setError(err?.message || "Unable to delete paper.");
+      }
     }
   };
 
@@ -203,6 +287,18 @@ export function PapersPage() {
           </Button>
         )}
       </div>
+
+      {isLoadingPapers && (
+        <Alert>
+          <AlertDescription>Loading papers...</AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Add/Edit Form */}
       {(isAdding || editingId) && (
@@ -389,9 +485,13 @@ export function PapersPage() {
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+              <Button
+                onClick={handleSave}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={isSavingPaper}
+              >
                 <Save className="w-4 h-4 mr-2" />
-                Save Paper
+                {isSavingPaper ? "Saving..." : "Save Paper"}
               </Button>
               <Button onClick={handleCancel} variant="outline">
                 Cancel

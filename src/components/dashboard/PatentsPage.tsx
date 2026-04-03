@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -7,9 +7,10 @@ import { Textarea } from "../ui/textarea";
 import { Plus, Edit2, Trash2, X, Save, ExternalLink, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
+import { patentsAPI } from "../../utils/api";
 
 interface Patent {
-  id: string;
+  id: number | string;
   title: string;
   inventors: string;
   patentNumber: string;
@@ -24,9 +25,12 @@ interface Patent {
 
 export function PatentsPage() {
   const [patents, setPatents] = useState<Patent[]>([]);
+  const [isLoadingPatents, setIsLoadingPatents] = useState(true);
+  const [isSavingPatent, setIsSavingPatent] = useState(false);
+  const [error, setError] = useState("");
 
   const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | string | null>(null);
   
   const [formData, setFormData] = useState<Omit<Patent, "id">>({
     title: "",
@@ -44,6 +48,46 @@ export function PatentsPage() {
   const [keywordInput, setKeywordInput] = useState("");
   const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
   const [aiGeneratedKeywords, setAiGeneratedKeywords] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadPatents = async () => {
+      setIsLoadingPatents(true);
+      setError("");
+
+      try {
+        const data = await patentsAPI.getAll();
+        const rows = Array.isArray(data) ? data : data?.results || [];
+
+        setPatents(
+          rows.map((patent: any, index: number) => ({
+            id: patent?.id ?? Date.now() + index,
+            title: patent?.title ?? "",
+            inventors: patent?.inventors ?? "",
+            patentNumber: patent?.patent_number ?? patent?.patentNumber ?? "",
+            applicationNumber:
+              patent?.application_number ?? patent?.applicationNumber ?? "",
+            filingDate: patent?.filing_date ?? patent?.filingDate ?? "",
+            issueDate: patent?.issue_date ?? patent?.issueDate ?? "",
+            status:
+              patent?.status === "granted" ||
+              patent?.status === "pending" ||
+              patent?.status === "application"
+                ? patent.status
+                : "application",
+            abstract: patent?.abstract ?? "",
+            assignee: patent?.assignee ?? "Salisbury University",
+            keywords: Array.isArray(patent?.keywords) ? patent.keywords : [],
+          })),
+        );
+      } catch (err: any) {
+        setError(err?.message || "Unable to load patents.");
+      } finally {
+        setIsLoadingPatents(false);
+      }
+    };
+
+    loadPatents();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -99,28 +143,61 @@ export function PatentsPage() {
     });
   };
 
-  const handleSave = () => {
-    if (editingId) {
-      setPatents(prev => prev.map(p => 
-        p.id === editingId ? { ...formData, id: editingId } : p
-      ));
-      setEditingId(null);
-    } else {
-      setPatents(prev => [...prev, { ...formData, id: Date.now().toString() }]);
-      setIsAdding(false);
+  const handleSave = async () => {
+    setIsSavingPatent(true);
+    setError("");
+
+    const payload = {
+      title: formData.title,
+      inventors: formData.inventors,
+      patent_number: formData.patentNumber,
+      application_number: formData.applicationNumber,
+      filing_date: formData.filingDate,
+      issue_date: formData.issueDate,
+      status: formData.status,
+      abstract: formData.abstract,
+      assignee: formData.assignee,
+      keywords: formData.keywords,
+    };
+
+    try {
+      if (editingId !== null) {
+        const updated = await patentsAPI.update(Number(editingId), payload);
+        setPatents((prev) =>
+          prev.map((p) =>
+            p.id === editingId
+              ? {
+                  ...p,
+                  ...formData,
+                  id: updated?.id ?? editingId,
+                }
+              : p,
+          ),
+        );
+        setEditingId(null);
+      } else {
+        const created = await patentsAPI.create(payload);
+        setPatents((prev) => [...prev, { ...formData, id: created?.id ?? Date.now() }]);
+        setIsAdding(false);
+      }
+
+      setFormData({
+        title: "",
+        inventors: "",
+        patentNumber: "",
+        applicationNumber: "",
+        filingDate: "",
+        issueDate: "",
+        status: "application",
+        abstract: "",
+        assignee: "Salisbury University",
+        keywords: []
+      });
+    } catch (err: any) {
+      setError(err?.message || "Unable to save patent.");
+    } finally {
+      setIsSavingPatent(false);
     }
-    setFormData({
-      title: "",
-      inventors: "",
-      patentNumber: "",
-      applicationNumber: "",
-      filingDate: "",
-      issueDate: "",
-      status: "application",
-      abstract: "",
-      assignee: "Salisbury University",
-      keywords: []
-    });
   };
 
   const handleCancel = () => {
@@ -140,9 +217,15 @@ export function PatentsPage() {
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: number | string) => {
     if (confirm("Are you sure you want to delete this patent?")) {
-      setPatents(prev => prev.filter(p => p.id !== id));
+      setError("");
+      try {
+        await patentsAPI.delete(Number(id));
+        setPatents(prev => prev.filter(p => p.id !== id));
+      } catch (err: any) {
+        setError(err?.message || "Unable to delete patent.");
+      }
     }
   };
 
@@ -215,6 +298,18 @@ export function PatentsPage() {
           </Button>
         )}
       </div>
+
+      {isLoadingPatents && (
+        <Alert>
+          <AlertDescription>Loading patents...</AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Add/Edit Form */}
       {(isAdding || editingId) && (
@@ -407,9 +502,13 @@ export function PatentsPage() {
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+              <Button
+                onClick={handleSave}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={isSavingPatent}
+              >
                 <Save className="w-4 h-4 mr-2" />
-                Save Patent
+                {isSavingPatent ? "Saving..." : "Save Patent"}
               </Button>
               <Button onClick={handleCancel} variant="outline">
                 Cancel
