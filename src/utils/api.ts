@@ -148,6 +148,8 @@ export const authAPI = {
 
   me: async () => apiCall("/faculty/me/"),
 
+  adminMe: async () => apiCall("/admin/me/"),
+
   refresh: async () => {
     const refresh = getRefreshToken();
     if (!refresh) throw new Error("No refresh token");
