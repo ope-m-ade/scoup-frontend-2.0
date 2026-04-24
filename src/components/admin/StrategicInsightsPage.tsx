@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Lightbulb, Users, Target, CheckCircle2 } from "lucide-react";
 import { facultyAPI, papersAPI, patentsAPI, projectsAPI } from "../../utils/api";
+import { getDepartmentAffiliations } from "../../utils/datasetNormalization";
 
 interface DepartmentMetric {
   name: string;
@@ -41,11 +42,21 @@ export function StrategicInsightsPage() {
           }
           return byDept[key];
         };
+        const incrementDepartments = (item: any, field: keyof Omit<DepartmentMetric, "name" | "score">) => {
+          const departments = getDepartmentAffiliations(item);
+          const targets = departments.length > 0
+            ? departments
+            : [String(item?.department || item?.faculty_department || "Unassigned").trim() || "Unassigned"];
 
-        faculty.forEach((f: any) => ensure(String(f?.department || "Unassigned")).faculty += 1);
-        papers.forEach((p: any) => ensure(String(p?.department || p?.faculty_department || "Unassigned")).papers += 1);
-        patents.forEach((p: any) => ensure(String(p?.department || p?.faculty_department || "Unassigned")).patents += 1);
-        projects.forEach((p: any) => ensure(String(p?.department || p?.faculty_department || "Unassigned")).projects += 1);
+          targets.forEach((department) => {
+            ensure(department)[field] += 1;
+          });
+        };
+
+        faculty.forEach((f: any) => incrementDepartments(f, "faculty"));
+        papers.forEach((p: any) => incrementDepartments(p, "papers"));
+        patents.forEach((p: any) => incrementDepartments(p, "patents"));
+        projects.forEach((p: any) => incrementDepartments(p, "projects"));
 
         const result = Object.values(byDept).map((m) => ({
           ...m,

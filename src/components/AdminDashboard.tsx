@@ -5,15 +5,16 @@ import { DepartmentManagementPage } from "./admin/DepartmentManagementPage";
 import { PlatformAnalyticsPage } from "./admin/PlatformAnalyticsPage";
 import { StrategicInsightsPage } from "./admin/StrategicInsightsPage";
 import { SystemSettingsPage } from "./admin/SystemSettingsPage";
+import { ContactPageEditor } from "./admin/ContactPageEditor";
 import { Button } from "./ui/button";
-import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Phone } from "lucide-react";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "departments" | "analytics" | "insights" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "departments" | "analytics" | "insights" | "contact" | "settings">("overview");
 
   const renderContent = () => {
     switch (activeTab) {
@@ -27,6 +28,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return <PlatformAnalyticsPage />;
       case "insights":
         return <StrategicInsightsPage />;
+      case "contact":
+        return <ContactPageEditor />;
       case "settings":
         return <SystemSettingsPage />;
       default:
@@ -107,6 +110,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           >
             <Lightbulb className="w-5 h-5" />
             Strategic Insights
+          </button>
+          <button
+            onClick={() => setActiveTab("contact")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
+              activeTab === "contact"
+                ? "bg-[#8b0000] text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Phone className="w-5 h-5" />
+            Contact Page
           </button>
         </nav>
 

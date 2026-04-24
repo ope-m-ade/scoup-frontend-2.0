@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Mail, User, CheckCircle, XCircle } from "lucide-react";
 import { Input } from "../ui/input";
 import { facultyAPI } from "../../utils/api";
+import { getDepartmentAffiliations, getPrimaryDepartment } from "../../utils/datasetNormalization";
 
 interface FacultyRow {
   id: string;
   name: string;
   email: string;
   department: string;
+  departmentAffiliations: string[];
   status: "active" | "inactive";
 }
 
@@ -34,7 +36,8 @@ export function FacultyManagementPage() {
             id: String(item?.id ?? item?.pk ?? name),
             name,
             email: String(item?.email || ""),
-            department: String(item?.department || "Unassigned"),
+            department: getPrimaryDepartment(item),
+            departmentAffiliations: getDepartmentAffiliations(item),
             status: item?.is_active === false ? "inactive" : "active",
           } as FacultyRow;
         });
@@ -53,10 +56,11 @@ export function FacultyManagementPage() {
   const filteredFaculty = useMemo(() => {
     return facultyRows.filter((faculty) => {
       const q = searchTerm.toLowerCase();
+      const departmentText = [faculty.department, ...faculty.departmentAffiliations].join(" ").toLowerCase();
       const matchesSearch =
         faculty.name.toLowerCase().includes(q) ||
         faculty.email.toLowerCase().includes(q) ||
-        faculty.department.toLowerCase().includes(q);
+        departmentText.includes(q);
 
       const matchesFilter = filterStatus === "all" ? true : faculty.status === filterStatus;
       return matchesSearch && matchesFilter;
@@ -133,7 +137,11 @@ export function FacultyManagementPage() {
                       <span className="text-sm text-gray-400">No email</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{faculty.department}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {faculty.departmentAffiliations.length > 0
+                      ? faculty.departmentAffiliations.join(", ")
+                      : faculty.department}
+                  </td>
                   <td className="px-6 py-4">
                     {faculty.status === "active" ? (
                       <span className="inline-flex items-center gap-1 text-sm text-green-700">

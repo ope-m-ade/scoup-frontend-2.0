@@ -216,4 +216,46 @@ export const patentsAPI = {
     apiCall(`/patents/${id}/`, { method: "DELETE" }),
 };
 
+export const networkAPI = {
+  discovery: async ({ q = "", limit = 50 }: { q?: string; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (q.trim()) params.set("q", q.trim());
+    if (limit) params.set("limit", String(limit));
+    const query = params.toString();
+    return apiCall(`/network/discovery/${query ? `?${query}` : ""}`);
+  },
+};
+
+export const contactAPI = {
+  getTeam: async () => apiCall("/contact/team/"),
+  getSettings: async () => apiCall("/contact/settings/"),
+
+  adminGetTeam: async () => apiCall("/admin/contact/team/"),
+  adminCreateMember: async (data: any) =>
+    apiCall("/admin/contact/team/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  adminUpdateMember: async (id: number, data: any) =>
+    apiCall(`/admin/contact/team/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  adminDeleteMember: async (id: number) =>
+    apiCall(`/admin/contact/team/${id}/`, { method: "DELETE" }),
+  adminUpdateSettings: async (data: any) =>
+    apiCall("/admin/contact/settings/", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  adminUploadPhoto: async (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append("photo", file);
+    return apiCall(`/admin/contact/team/${id}/photo/`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+};
+
 export { apiCall };

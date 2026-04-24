@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, Users, Eye, FileText, Globe } from "lucide-react";
-import { apiCall } from "../../utils/api";
+import { fetchPublicDataset } from "../../utils/publicData";
 
 export function PlatformAnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -15,11 +15,11 @@ export function PlatformAnalyticsPage() {
       setIsLoading(true);
       setError("");
       try {
-        const data = await apiCall("/public/search-data/");
-        const faculty = Array.isArray(data?.facultyData) ? data.facultyData : [];
-        const papers = Array.isArray(data?.papersData) ? data.papersData : [];
-        const patents = Array.isArray(data?.patentsData) ? data.patentsData : [];
-        const projects = Array.isArray(data?.projectsData) ? data.projectsData : [];
+        const data = await fetchPublicDataset();
+        const faculty = data.facultyData;
+        const papers = data.papersData;
+        const patents = data.patentsData;
+        const projects = data.projectsData;
 
         setFacultyCount(faculty.length);
         setPaperCount(papers.length);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Users, FileText, Lightbulb, FolderOpen, Eye } from "lucide-react";
 import { facultyAPI, papersAPI, patentsAPI, projectsAPI } from "../../utils/api";
+import { getDepartmentAffiliations } from "../../utils/datasetNormalization";
 
 export function AdminOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -39,8 +40,11 @@ export function AdminOverviewPage() {
   const departments = useMemo(() => {
     const counts: Record<string, number> = {};
     faculty.forEach((f: any) => {
-      const dept = String(f?.department || "Unassigned").trim() || "Unassigned";
-      counts[dept] = (counts[dept] || 0) + 1;
+      const departments = getDepartmentAffiliations(f);
+      const targets = departments.length > 0 ? departments : [String(f?.department || "Unassigned").trim() || "Unassigned"];
+      targets.forEach((dept) => {
+        counts[dept] = (counts[dept] || 0) + 1;
+      });
     });
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))

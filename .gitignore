@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+generated/
+
+.DS_Store
+*.log
+database_backups/*.sqlite3
+database_backups/*.json
+.claude/

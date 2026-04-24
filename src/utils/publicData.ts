@@ -1,4 +1,5 @@
 import type { FacultyMember, Paper, Patent, Project } from "../data/searchData";
+import { normalizePublicDataset } from "./datasetNormalization";
 
 const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
 const API_BASE_URL = (
@@ -30,12 +31,12 @@ export async function fetchPublicDataset(): Promise<PublicDataset> {
   }
 
   const data = await response.json();
-  return {
+  return normalizePublicDataset({
     facultyData: Array.isArray(data?.facultyData) ? data.facultyData : [],
     papersData: Array.isArray(data?.papersData) ? data.papersData : [],
     patentsData: Array.isArray(data?.patentsData) ? data.patentsData : [],
     projectsData: Array.isArray(data?.projectsData) ? data.projectsData : [],
-  };
+  });
 }
 
 export async function fetchSemanticPaperResults(

@@ -64,14 +64,7 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
       return;
     }
 
-    // if (!formData.email.endsWith("@salisbury.edu")) {
-    //   setError("Please use a valid Salisbury University email address");
-    //   setIsLoading(false);
-    //   return;
-    // }
-
     try {
-      // Call Django backend registration API
       await authAPI.register({
         username: formData.username,
         email: formData.email,
@@ -82,9 +75,6 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
 
       await authAPI.login(formData.username, formData.password);
 
-      console.log("Signup successful");
-
-      // Handle successful signup
       onSignupSuccess?.();
     } catch (err: any) {
       console.error("Signup error:", err);

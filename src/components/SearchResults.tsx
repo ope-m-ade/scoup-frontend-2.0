@@ -9,6 +9,7 @@ import {
   User,
 } from "lucide-react";
 import type { SearchResult } from "../data/searchData";
+import { getInitials } from "../utils/avatar";
 
 interface SearchResultsProps {
   results: SearchResult[];
@@ -17,6 +18,15 @@ interface SearchResultsProps {
 }
 
 const PAGE_SIZE = 10;
+
+const getPaperHref = (paper: { doi?: string; link?: string }) => {
+  const doi = String(paper.doi || "").trim();
+  if (doi) return `https://doi.org/${doi}`;
+
+  const link = String(paper.link || "").trim();
+  if (!link) return "";
+  return link.startsWith("http") ? link : `https://doi.org/${link}`;
+};
 
 export function SearchResults({
   results,
@@ -130,11 +140,17 @@ export function SearchResults({
             {/* Faculty Result */}
             {result.type === "faculty" && "name" in result.data && (
               <div className="flex gap-6">
-                <img
-                  src={result.data.photo}
-                  alt={result.data.name}
-                  className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
-                />
+                {result.data.photo ? (
+                  <img
+                    src={result.data.photo}
+                    alt={result.data.name}
+                    className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-lg bg-[#8b0000] text-white flex flex-shrink-0 items-center justify-center text-2xl font-semibold">
+                    {getInitials(result.data.name)}
+                  </div>
+                )}
                 <div className="flex-1">
                   <h3 className="text-xl font-medium text-gray-900 mb-1">
                     {result.data.name}
@@ -260,15 +276,17 @@ export function SearchResults({
                         </span>
                       ))}
                     </div>
-                    <a
-                      href={result.data.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
-                    >
-                      View Paper
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    {getPaperHref(result.data) && (
+                      <a
+                        href={getPaperHref(result.data)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
+                      >
+                        View Paper
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
                 </div>
               )}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import { Building2, Users, FileText, TrendingUp } from "lucide-react";
 import { facultyAPI, papersAPI, patentsAPI, projectsAPI } from "../../utils/api";
+import { getDepartmentAffiliations } from "../../utils/datasetNormalization";
 
 interface DepartmentRow {
   name: string;
@@ -41,21 +42,31 @@ export function DepartmentManagementPage() {
           }
           return bucket[key];
         };
+        const incrementDepartments = (item: any, field: keyof Omit<DepartmentRow, "name">) => {
+          const departments = getDepartmentAffiliations(item);
+          const targets = departments.length > 0
+            ? departments
+            : [String(item?.department || item?.faculty_department || "Unassigned").trim() || "Unassigned"];
+
+          targets.forEach((department) => {
+            ensure(department)[field] += 1;
+          });
+        };
 
         faculty.forEach((f: any) => {
-          ensure(String(f?.department || "Unassigned")).faculty += 1;
+          incrementDepartments(f, "faculty");
         });
 
         papers.forEach((p: any) => {
-          ensure(String(p?.department || p?.faculty_department || "Unassigned")).publications += 1;
+          incrementDepartments(p, "publications");
         });
 
         patents.forEach((p: any) => {
-          ensure(String(p?.department || p?.faculty_department || "Unassigned")).patents += 1;
+          incrementDepartments(p, "patents");
         });
 
         projects.forEach((p: any) => {
-          ensure(String(p?.department || p?.faculty_department || "Unassigned")).projects += 1;
+          incrementDepartments(p, "projects");
         });
 
         setDepartments(Object.values(bucket).sort((a, b) => b.faculty - a.faculty));

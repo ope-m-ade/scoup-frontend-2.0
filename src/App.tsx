@@ -155,6 +155,8 @@ export default function App() {
         return <Home onNavigate={handleNavigate} />;
       case "/about":
         return <About onNavigate={handleNavigate} />;
+      case "/contact":
+        return <Contact onNavigate={handleNavigate} />;
       case "/faculty-login":
         return (
           <FacultyLogin

@@ -3,6 +3,8 @@ export interface FacultyMember {
   name: string;
   title: string;
   department: string;
+  departmentAffiliations?: string[];
+  schoolAffiliations?: string[];
   email: string;
   phone: string;
   photo: string;
@@ -44,6 +46,8 @@ export interface Paper {
   };
   facultyMembers?: string[];
   facultyAffiliations?: Record<string, string[]>;
+  departmentAffiliations?: string[];
+  schoolAffiliations?: string[];
   sourceMetadata?: Record<string, unknown>;
   engagementMetrics?: Record<string, unknown>;
   semanticScore?: number;
@@ -58,6 +62,8 @@ export interface Patent {
   description: string;
   link: string;
   aiKeywords: string[];
+  departmentAffiliations?: string[];
+  schoolAffiliations?: string[];
 }
 
 export interface Project {
@@ -69,6 +75,8 @@ export interface Project {
   startDate: string;
   endDate?: string;
   aiKeywords: string[];
+  departmentAffiliations?: string[];
+  schoolAffiliations?: string[];
 }
 
 export interface SearchResult {

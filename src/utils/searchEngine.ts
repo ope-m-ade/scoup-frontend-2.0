@@ -6,6 +6,7 @@ import {
   type SearchResult,
 } from "../data/searchData";
 import { fetchSemanticPaperResults, type PublicDataset } from "./publicData";
+import { getDepartmentAffiliations, getSchoolAffiliations } from "./datasetNormalization";
 
 let dataset: PublicDataset = {
   facultyData: [],
@@ -197,9 +198,10 @@ function buildSearchTermStats(input: PublicDataset) {
   termDocumentFrequency.clear();
 
   input.facultyData.forEach((faculty) => {
+    const departmentText = [faculty.department, ...getDepartmentAffiliations(faculty), ...getSchoolAffiliations(faculty)].join(" ");
     indexDocumentTerms([
       ...collectTermsFromText(
-        `${faculty.name} ${faculty.department} ${faculty.title} ${faculty.bio} ${faculty.researchInterests.join(" ")}`
+        `${faculty.name} ${departmentText} ${faculty.title} ${faculty.bio} ${faculty.researchInterests.join(" ")}`
       ),
       ...collectTermsFromKeywords(faculty.aiKeywords || []),
     ]);
@@ -330,6 +332,8 @@ function buildSuggestionIndex(input: PublicDataset): SuggestionEntry[] {
   input.facultyData.forEach((faculty) => {
     add(faculty.name, "faculty_name");
     add(faculty.department, "faculty_department");
+    getDepartmentAffiliations(faculty).forEach((value) => add(value, "faculty_department"));
+    getSchoolAffiliations(faculty).forEach((value) => add(value, "faculty_department"));
     add(faculty.title, "faculty_department");
     faculty.researchInterests.forEach((value) => add(value, "faculty_interest"));
     faculty.aiKeywords.forEach((value) => add(value, "faculty_keyword"));
@@ -588,8 +592,9 @@ export async function performSearch(query: string): Promise<SearchResult[]> {
 
   // Search faculty
   dataset.facultyData.forEach((faculty) => {
-    const titleText = `${faculty.name} ${faculty.title} ${faculty.department}`;
-    const contentText = `${faculty.name} ${faculty.title} ${faculty.department} ${faculty.bio} ${faculty.researchInterests.join(" ")}`;
+    const departmentText = [faculty.department, ...getDepartmentAffiliations(faculty), ...getSchoolAffiliations(faculty)].join(" ");
+    const titleText = `${faculty.name} ${faculty.title} ${departmentText}`;
+    const contentText = `${faculty.name} ${faculty.title} ${departmentText} ${faculty.bio} ${faculty.researchInterests.join(" ")}`;
     const { score, matchedKeywords } = calculateConfidence(
       searchTerms,
       faculty.aiKeywords,

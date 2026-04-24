@@ -39,12 +39,8 @@ export function FacultyLogin({
     setError("");
 
     try {
-      // Call Django backend login API
       await authAPI.login(formData.emailOrUsername, formData.password);
 
-      console.log("Login successful");
-
-      // Handle successful login
       if (onLoginSuccess) {
         onLoginSuccess();
       }
