@@ -39,6 +39,23 @@ export async function fetchPublicDataset(): Promise<PublicDataset> {
   });
 }
 
+export interface UnifiedSearchResult {
+  type: "faculty" | "paper" | "patent" | "project";
+  confidence: number;
+  aiJustification: string;
+  matchedKeywords: string[];
+  data: Record<string, unknown>;
+}
+
+export async function fetchUnifiedSearch(query: string): Promise<UnifiedSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed || !API_BASE_URL) return [];
+  const response = await fetch(`${API_BASE_URL}/search/?q=${encodeURIComponent(trimmed)}`);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data?.results) ? data.results : [];
+}
+
 export async function fetchSemanticPaperResults(
   query: string,
   limit = 20

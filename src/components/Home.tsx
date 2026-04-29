@@ -195,12 +195,6 @@ export function Home({ onNavigate }: HomeProps) {
       } catch (error) {
         console.error("Failed to load backend dataset:", error);
         setPublicDataError("Unable to load live public dataset.");
-        setSearchDataset({
-          facultyData: [],
-          papersData: [],
-          patentsData: [],
-          projectsData: [],
-        });
       }
     };
 
@@ -347,7 +341,14 @@ export function Home({ onNavigate }: HomeProps) {
               </div>
             </div>
           </div>
-          <SearchResults results={searchResults} query={searchQuery} activeFilters={activeFilters} />
+          {isSearching ? (
+            <div className="flex flex-col items-center justify-center py-24 text-gray-500">
+              <div className="w-10 h-10 border-4 border-[#8b0000] border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-sm font-light">Searching...</p>
+            </div>
+          ) : (
+            <SearchResults results={searchResults} query={searchQuery} activeFilters={activeFilters} />
+          )}
         </div>
       ) : (
         // Hero Section with Search

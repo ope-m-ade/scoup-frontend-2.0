@@ -20,12 +20,15 @@ interface SearchResultsProps {
 const PAGE_SIZE = 10;
 
 const getPaperHref = (paper: { doi?: string; link?: string }) => {
-  const doi = String(paper.doi || "").trim();
-  if (doi) return `https://doi.org/${doi}`;
-
   const link = String(paper.link || "").trim();
-  if (!link) return "";
-  return link.startsWith("http") ? link : `https://doi.org/${link}`;
+  if (link) {
+    if (link.startsWith("http")) return link;
+    const doi = String(paper.doi || "").trim();
+    return doi ? `https://doi.org/${doi}` : `https://${link}`;
+  }
+
+  const doi = String(paper.doi || "").trim();
+  return doi ? `https://doi.org/${doi}` : "";
 };
 
 export function SearchResults({
@@ -190,27 +193,33 @@ export function SearchResults({
                       Contact Information
                     </p>
                     <div className="flex flex-wrap items-center gap-4">
-                      <a
-                        href={`mailto:${result.data.email}`}
-                        className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
-                      >
-                        <Mail className="w-4 h-4" />
-                        {result.data.email}
-                      </a>
-                      <a
-                        href={`tel:${result.data.phone}`}
-                        className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
-                      >
-                        <Phone className="w-4 h-4" />
-                        {result.data.phone}
-                      </a>
-                      <a
-                        href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello Dr. ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research in ${result.data.researchInterests[0]}.%0D%0A%0D%0A`}
-                        className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
-                      >
-                        <Mail className="w-4 h-4" />
-                        Contact Me
-                      </a>
+                      {result.data.email && (
+                        <a
+                          href={`mailto:${result.data.email}`}
+                          className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
+                        >
+                          <Mail className="w-4 h-4" />
+                          {result.data.email}
+                        </a>
+                      )}
+                      {result.data.phone && (
+                        <a
+                          href={`tel:${result.data.phone}`}
+                          className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
+                        >
+                          <Phone className="w-4 h-4" />
+                          {result.data.phone}
+                        </a>
+                      )}
+                      {result.data.email && (
+                        <a
+                          href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research${result.data.researchInterests[0] ? ` in ${result.data.researchInterests[0]}` : ""}.%0D%0A%0D%0A`}
+                          className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                        >
+                          <Mail className="w-4 h-4" />
+                          Contact
+                        </a>
+                      )}
                     </div>
                   </div>
 
