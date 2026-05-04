@@ -1,4 +1,5 @@
 import type { FacultyMember, Paper, Patent, Project } from "../data/searchData";
+import { normalizePublicDataset } from "./datasetNormalization";
 
 const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
 const API_BASE_URL = (
@@ -30,12 +31,29 @@ export async function fetchPublicDataset(): Promise<PublicDataset> {
   }
 
   const data = await response.json();
-  return {
+  return normalizePublicDataset({
     facultyData: Array.isArray(data?.facultyData) ? data.facultyData : [],
     papersData: Array.isArray(data?.papersData) ? data.papersData : [],
     patentsData: Array.isArray(data?.patentsData) ? data.patentsData : [],
     projectsData: Array.isArray(data?.projectsData) ? data.projectsData : [],
-  };
+  });
+}
+
+export interface UnifiedSearchResult {
+  type: "faculty" | "paper" | "patent" | "project";
+  confidence: number;
+  aiJustification: string;
+  matchedKeywords: string[];
+  data: Record<string, unknown>;
+}
+
+export async function fetchUnifiedSearch(query: string): Promise<UnifiedSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed || !API_BASE_URL) return [];
+  const response = await fetch(`${API_BASE_URL}/search/?q=${encodeURIComponent(trimmed)}`);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data?.results) ? data.results : [];
 }
 
 export async function fetchSemanticPaperResults(

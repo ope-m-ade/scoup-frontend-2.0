@@ -243,7 +243,6 @@ export function PapersPage() {
     
     let generatedKeywords: string[] = [];
     
-    // Simple keyword extraction logic (in real app, this would be AI-powered)
     if (combined.includes('machine learning') || combined.includes('ai') || combined.includes('artificial intelligence')) {
       generatedKeywords = ["Machine Learning", "Artificial Intelligence", "Neural Networks", "Deep Learning", "Data Science"];
     } else if (combined.includes('biology') || combined.includes('genetics') || combined.includes('molecular')) {

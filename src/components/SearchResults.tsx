@@ -9,6 +9,7 @@ import {
   User,
 } from "lucide-react";
 import type { SearchResult } from "../data/searchData";
+import { getInitials } from "../utils/avatar";
 
 interface SearchResultsProps {
   results: SearchResult[];
@@ -17,6 +18,18 @@ interface SearchResultsProps {
 }
 
 const PAGE_SIZE = 10;
+
+const getPaperHref = (paper: { doi?: string; link?: string }) => {
+  const link = String(paper.link || "").trim();
+  if (link) {
+    if (link.startsWith("http")) return link;
+    const doi = String(paper.doi || "").trim();
+    return doi ? `https://doi.org/${doi}` : `https://${link}`;
+  }
+
+  const doi = String(paper.doi || "").trim();
+  return doi ? `https://doi.org/${doi}` : "";
+};
 
 export function SearchResults({
   results,
@@ -130,11 +143,17 @@ export function SearchResults({
             {/* Faculty Result */}
             {result.type === "faculty" && "name" in result.data && (
               <div className="flex gap-6">
-                <img
-                  src={result.data.photo}
-                  alt={result.data.name}
-                  className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
-                />
+                {result.data.photo ? (
+                  <img
+                    src={result.data.photo}
+                    alt={result.data.name}
+                    className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-lg bg-[#8b0000] text-white flex flex-shrink-0 items-center justify-center text-2xl font-semibold">
+                    {getInitials(result.data.name)}
+                  </div>
+                )}
                 <div className="flex-1">
                   <h3 className="text-xl font-medium text-gray-900 mb-1">
                     {result.data.name}
@@ -174,27 +193,33 @@ export function SearchResults({
                       Contact Information
                     </p>
                     <div className="flex flex-wrap items-center gap-4">
-                      <a
-                        href={`mailto:${result.data.email}`}
-                        className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
-                      >
-                        <Mail className="w-4 h-4" />
-                        {result.data.email}
-                      </a>
-                      <a
-                        href={`tel:${result.data.phone}`}
-                        className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
-                      >
-                        <Phone className="w-4 h-4" />
-                        {result.data.phone}
-                      </a>
-                      <a
-                        href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello Dr. ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research in ${result.data.researchInterests[0]}.%0D%0A%0D%0A`}
-                        className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
-                      >
-                        <Mail className="w-4 h-4" />
-                        Contact Me
-                      </a>
+                      {result.data.email && (
+                        <a
+                          href={`mailto:${result.data.email}`}
+                          className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
+                        >
+                          <Mail className="w-4 h-4" />
+                          {result.data.email}
+                        </a>
+                      )}
+                      {result.data.phone && (
+                        <a
+                          href={`tel:${result.data.phone}`}
+                          className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
+                        >
+                          <Phone className="w-4 h-4" />
+                          {result.data.phone}
+                        </a>
+                      )}
+                      {result.data.email && (
+                        <a
+                          href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research${result.data.researchInterests[0] ? ` in ${result.data.researchInterests[0]}` : ""}.%0D%0A%0D%0A`}
+                          className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                        >
+                          <Mail className="w-4 h-4" />
+                          Contact
+                        </a>
+                      )}
                     </div>
                   </div>
 
@@ -260,15 +285,17 @@ export function SearchResults({
                         </span>
                       ))}
                     </div>
-                    <a
-                      href={result.data.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
-                    >
-                      View Paper
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    {getPaperHref(result.data) && (
+                      <a
+                        href={getPaperHref(result.data)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
+                      >
+                        View Paper
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
                 </div>
               )}

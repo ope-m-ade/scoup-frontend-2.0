@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Shield, Mail, Lock, ArrowLeft } from "lucide-react";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Shield, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
+import { authAPI } from "../utils/api";
 
 interface AdminLoginProps {
   onBack: () => void;
@@ -11,13 +13,39 @@ interface AdminLoginProps {
 }
 
 export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    emailOrUsername: "",
+    password: "",
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Temporary local-only admin login flow
-    onLoginSuccess();
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Authenticate credentials first.
+      await authAPI.login(formData.emailOrUsername, formData.password);
+      // Then enforce admin privileges server-side.
+      await authAPI.adminMe();
+      onLoginSuccess();
+    } catch (err: any) {
+      authAPI.logout();
+      setError(
+        err?.message ||
+          "Admin login failed. Ensure this account has staff/superuser permissions.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: "emailOrUsername" | "password", value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (error) setError("");
   };
 
   return (
@@ -50,18 +78,23 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             <div>
-              <Label htmlFor="email" className="text-gray-700 font-medium">
-                Email Address
+              <Label htmlFor="emailOrUsername" className="text-gray-700 font-medium">
+                Email Address or Username
               </Label>
               <div className="relative mt-2">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@salisbury.edu"
+                  id="emailOrUsername"
+                  type="text"
+                  value={formData.emailOrUsername}
+                  onChange={(e) => handleInputChange("emailOrUsername", e.target.value)}
+                  placeholder="admin@salisbury.edu or username"
                   className="pl-11 h-12 border-gray-300"
                   required
                 />
@@ -76,13 +109,26 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange("password", e.target.value)}
                   placeholder="Enter your password"
-                  className="pl-11 h-12 border-gray-300"
+                  className="pl-11 pr-11 h-12 border-gray-300"
                   required
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-transparent"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <Eye className="w-4 h-4 text-gray-400" />
+                  )}
+                </Button>
               </div>
             </div>
 
@@ -99,8 +145,9 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
             <Button
               type="submit"
               className="w-full h-12 bg-[#8b0000] hover:bg-[#6b0000] text-white"
+              disabled={isLoading}
             >
-              Sign In as Admin
+              {isLoading ? "Signing in..." : "Sign In as Admin"}
             </Button>
           </form>
 

@@ -6,6 +6,7 @@ import { FacultySignup } from "./components/FacultySignup";
 import { AdminLogin } from "./components/AdminLogin";
 import { FacultyDashboard } from "./components/FacultyDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { Contact } from "./components/Contact"
 import { authAPI } from "./utils/api";
 
 type UserRole = "admin" | "faculty" | null;
@@ -79,10 +80,40 @@ export default function App() {
       navigateTo("/faculty-dashboard", true);
       return;
     }
-    if (currentPath === "/admin-login" && userRole === "admin") {
+    if (
+      currentPath === "/admin-login" &&
+      userRole === "admin" &&
+      authAPI.isAuthenticated()
+    ) {
       navigateTo("/admin-dashboard", true);
       return;
     }
+  }, [currentPath, userRole]);
+
+  useEffect(() => {
+    if (currentPath !== "/admin-dashboard" || userRole !== "admin") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const verifyAdmin = async () => {
+      try {
+        await authAPI.adminMe();
+      } catch {
+        if (cancelled) return;
+        hasManualRoleSelection.current = false;
+        authAPI.logout();
+        setUserRole(null);
+        sessionStorage.removeItem(ROLE_STORAGE_KEY);
+        navigateTo("/admin-login", true);
+      }
+    };
+
+    verifyAdmin();
+    return () => {
+      cancelled = true;
+    };
   }, [currentPath, userRole]);
 
   const handleLogin = (role: UserRole) => {
@@ -124,6 +155,8 @@ export default function App() {
         return <Home onNavigate={handleNavigate} />;
       case "/about":
         return <About onNavigate={handleNavigate} />;
+      case "/contact":
+        return <Contact onNavigate={handleNavigate} />;
       case "/faculty-login":
         return (
           <FacultyLogin

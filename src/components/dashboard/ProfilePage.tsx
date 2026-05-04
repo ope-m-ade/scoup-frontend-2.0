@@ -10,6 +10,7 @@ import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
 import { ProfileCompletionWidget } from "./ProfileCompletionWidget";
 import { apiCall, authAPI, facultyAPI } from "../../utils/api";
+import { getInitials } from "../../utils/avatar";
 
 interface Qualification {
   id: string;
@@ -274,12 +275,6 @@ export function ProfilePage() {
     }
   };
 
-  const getInitials = () => {
-    const first = formData.firstName?.[0] || "";
-    const last = formData.lastName?.[0] || "";
-    return `${first}${last}`.trim() || "SU";
-  };
-
   const generateAIBio = async () => {
     setIsGeneratingBio(true);
     setAiSuggestion({ type: null, content: "" });
@@ -447,7 +442,7 @@ export function ProfilePage() {
             <Avatar className="w-32 h-32">
               <AvatarImage src={profilePhoto} />
               <AvatarFallback className="text-2xl bg-[#8b0000] text-white">
-                {getInitials()}
+                {getInitials(formData.firstName, formData.lastName)}
               </AvatarFallback>
             </Avatar>
             {isEditing && (

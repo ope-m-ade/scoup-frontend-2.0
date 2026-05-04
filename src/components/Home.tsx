@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "./ui/button";
 import { Search, TrendingUp, Users } from "lucide-react";
 import { Navbar } from "./Navbar";
@@ -8,10 +8,13 @@ import type { SearchResult } from "../data/searchData";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { fetchPublicDataset, type PublicDataset } from "../utils/publicData";
+import { getDepartmentAffiliations } from "../utils/datasetNormalization";
 
 interface HomeProps {
   onNavigate: (path: string) => void;
 }
+
+const DEPARTMENT_CHART_LIMIT = 8;
 
 export function Home({ onNavigate }: HomeProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -118,6 +121,27 @@ export function Home({ onNavigate }: HomeProps) {
     ongoingProjects: 0
   });
 
+  const departmentChartData = useMemo(() => {
+    const topDepartments = facultyByDepartment.slice(0, DEPARTMENT_CHART_LIMIT);
+    const remainingFaculty = facultyByDepartment
+      .slice(DEPARTMENT_CHART_LIMIT)
+      .reduce((sum, item) => sum + item.faculty, 0);
+
+    return remainingFaculty > 0
+      ? [...topDepartments, { department: "Other departments", faculty: remainingFaculty }]
+      : topDepartments;
+  }, [facultyByDepartment]);
+
+  const topDepartmentList = useMemo(
+    () => facultyByDepartment.slice(0, 5),
+    [facultyByDepartment],
+  );
+
+  const remainingDepartmentCount = Math.max(
+    facultyByDepartment.length - topDepartmentList.length,
+    0,
+  );
+
   useEffect(() => {
     const generateAnalytics = () => {
       // Publications per year
@@ -135,12 +159,17 @@ export function Home({ onNavigate }: HomeProps) {
 
       // Faculty by department
       const deptCounts = publicDataset.facultyData.reduce((acc, faculty) => {
-        acc[faculty.department] = (acc[faculty.department] || 0) + 1;
+        const departments = getDepartmentAffiliations(faculty);
+        const targets = departments.length > 0 ? departments : [faculty.department || "Unassigned"];
+        targets.forEach((department) => {
+          acc[department] = (acc[department] || 0) + 1;
+        });
         return acc;
       }, {} as Record<string, number>);
       
       const deptData = Object.entries(deptCounts)
-        .map(([department, faculty]) => ({ department, faculty }));
+        .map(([department, faculty]) => ({ department, faculty }))
+        .sort((a, b) => b.faculty - a.faculty || a.department.localeCompare(b.department));
       
       setFacultyByDepartment(deptData);
 
@@ -166,12 +195,6 @@ export function Home({ onNavigate }: HomeProps) {
       } catch (error) {
         console.error("Failed to load backend dataset:", error);
         setPublicDataError("Unable to load live public dataset.");
-        setSearchDataset({
-          facultyData: [],
-          papersData: [],
-          patentsData: [],
-          projectsData: [],
-        });
       }
     };
 
@@ -318,7 +341,14 @@ export function Home({ onNavigate }: HomeProps) {
               </div>
             </div>
           </div>
-          <SearchResults results={searchResults} query={searchQuery} activeFilters={activeFilters} />
+          {isSearching ? (
+            <div className="flex flex-col items-center justify-center py-24 text-gray-500">
+              <div className="w-10 h-10 border-4 border-[#8b0000] border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-sm font-light">Searching...</p>
+            </div>
+          ) : (
+            <SearchResults results={searchResults} query={searchQuery} activeFilters={activeFilters} />
+          )}
         </div>
       ) : (
         // Hero Section with Search
@@ -469,7 +499,7 @@ export function Home({ onNavigate }: HomeProps) {
                   </div>
                   <div>
                     <h3 className="text-xl font-medium text-gray-900">Faculty by Department</h3>
-                    <p className="text-sm text-gray-600">Faculty distribution across categories</p>
+                    <p className="text-sm text-gray-600">Top departments by faculty affiliation</p>
                   </div>
                 </div>
                 
@@ -477,19 +507,27 @@ export function Home({ onNavigate }: HomeProps) {
                   <>
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={facultyByDepartment} layout="horizontal">
+                        <BarChart
+                          data={departmentChartData}
+                          layout="vertical"
+                          margin={{ top: 4, right: 20, bottom: 4, left: 12 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                           <XAxis 
                             type="number"
                             stroke="#6b7280"
                             style={{ fontSize: '12px' }}
+                            allowDecimals={false}
                           />
                           <YAxis 
                             type="category"
                             dataKey="department" 
-                            width={120}
+                            width={170}
                             stroke="#6b7280"
                             style={{ fontSize: '11px' }}
+                            tickFormatter={(value: string) =>
+                              value.length > 24 ? `${value.slice(0, 24)}...` : value
+                            }
                           />
                           <Tooltip 
                             contentStyle={{
@@ -507,12 +545,35 @@ export function Home({ onNavigate }: HomeProps) {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="mt-5 pt-5 border-t border-gray-200 space-y-4">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Total Faculty Members</span>
+                        <span className="text-gray-600">Department affiliations counted</span>
                         <span className="font-semibold text-[#8b0000]">
                           {facultyByDepartment.reduce((sum, item) => sum + item.faculty, 0)}
                         </span>
+                      </div>
+                      <div className="grid gap-2">
+                        {topDepartmentList.map((dept, index) => (
+                          <div key={dept.department} className="flex items-center justify-between gap-4 text-sm">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="w-5 shrink-0 text-xs font-semibold text-gray-500">
+                                {index + 1}
+                              </span>
+                              <span className="truncate text-gray-700">{dept.department}</span>
+                            </div>
+                            <span className="shrink-0 font-medium text-gray-900">{dept.faculty}</span>
+                          </div>
+                        ))}
+                        {remainingDepartmentCount > 0 && (
+                          <div className="flex items-center justify-between gap-4 text-sm text-gray-500">
+                            <span>{remainingDepartmentCount} more departments grouped in the chart</span>
+                            <span>
+                              {facultyByDepartment
+                                .slice(topDepartmentList.length)
+                                .reduce((sum, item) => sum + item.faculty, 0)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </>
@@ -602,7 +663,7 @@ export function Home({ onNavigate }: HomeProps) {
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
+                  <button onClick={() => onNavigate("/contact")} className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
                     Contact
                   </button>
                 </li>
