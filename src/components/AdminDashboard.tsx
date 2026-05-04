@@ -7,7 +7,8 @@ import { StrategicInsightsPage } from "./admin/StrategicInsightsPage";
 import { SystemSettingsPage } from "./admin/SystemSettingsPage";
 import { ContactPageEditor } from "./admin/ContactPageEditor";
 import { Button } from "./ui/button";
-import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Phone } from "lucide-react";
+import { Input } from "./ui/input";
+import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Search, Phone } from "lucide-react";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -15,6 +16,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "departments" | "analytics" | "insights" | "contact" | "settings">("overview");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const renderContent = () => {
     switch (activeTab) {
@@ -151,6 +153,28 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h2>
+              <p className="text-sm text-gray-500">Search the dashboard data from here.</p>
+            </div>
+            <div className="w-full max-w-md">
+              <label htmlFor="admin-dashboard-search" className="sr-only">
+                Search admin dashboard
+              </label>
+              <div className="relative text-gray-500 focus-within:text-gray-700">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+                <Input
+                  id="admin-dashboard-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search dashboard..."
+                  className="pl-11 h-12"
+                />
+              </div>
+            </div>
+          </div>
           {renderContent()}
         </div>
       </main>
