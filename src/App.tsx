@@ -6,7 +6,14 @@ import { FacultySignup } from "./components/FacultySignup";
 import { AdminLogin } from "./components/AdminLogin";
 import { FacultyDashboard } from "./components/FacultyDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
-import { Contact } from "./components/Contact"
+import { Contact } from "./components/Contact";
+import { ResetPassword } from "./components/ResetPassword";
+import {
+  Documentation,
+  ImplementationGapAnalysisDocumentation,
+  SearchEngineDocumentation,
+} from "./components/Documentation";
+import { CVUploadDocumentation } from "./components/CVUploadDocumentation";
 import { authAPI } from "./utils/api";
 
 type UserRole = "admin" | "faculty" | null;
@@ -157,6 +164,16 @@ export default function App() {
         return <About onNavigate={handleNavigate} />;
       case "/contact":
         return <Contact onNavigate={handleNavigate} />;
+      case "/documentation":
+        return <Documentation onNavigate={handleNavigate} />;
+      case "/documentation/search-engine":
+        return <SearchEngineDocumentation onNavigate={handleNavigate} />;
+      case "/documentation/cv-upload":
+        return <CVUploadDocumentation onNavigate={handleNavigate} />;
+      case "/documentation/implementation-gap-analysis":
+        return <ImplementationGapAnalysisDocumentation onNavigate={handleNavigate} />;
+      case "/reset-password":
+        return <ResetPassword onNavigate={handleNavigate} />;
       case "/faculty-login":
         return (
           <FacultyLogin
@@ -169,7 +186,7 @@ export default function App() {
         return (
           <FacultySignup
             onSignupSuccess={() => handleLogin("faculty")}
-            onBack={() => handleNavigate("/")}
+            onBack={() => handleNavigate("/faculty-login")}
           />
         );
       case "/admin-login":

@@ -22,6 +22,7 @@ import {
   Globe,
   Mail,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 
 interface Paper {
@@ -58,6 +59,8 @@ interface FacultyProfile {
   bio: string;
   photo: string;
   keywords: string[];
+  is_approved: boolean;
+  institutional_email_verified: boolean;
 }
 
 interface SuggestedPaper {
@@ -182,6 +185,8 @@ const normalizeProfile = (profile: any): FacultyProfile => {
       ...toKeywordList(profile?.faculty_keywords),
       ...toKeywordList(profile?.ai_keywords),
     ].slice(0, 8),
+    is_approved: Boolean(profile?.is_approved),
+    institutional_email_verified: Boolean(profile?.institutional_email_verified),
   };
 };
 
@@ -582,6 +587,12 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
                   <h2 className="text-2xl font-semibold text-gray-900">
                     {profile.name}
                   </h2>
+                  {profile.is_approved && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Verified
+                    </span>
+                  )}
                   <Badge variant="secondary">
                     {getProfileCompletionPercent()}% complete
                   </Badge>

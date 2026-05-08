@@ -162,22 +162,34 @@ export function SearchResults({
                     {result.data.title} · {result.data.department}
                   </p>
 
-                  {/* Research Interests - Prominent Display */}
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                      Research Interests
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {result.data.researchInterests.map((interest, i) => (
-                        <span
-                          key={i}
-                          className="px-3 py-1 bg-gradient-to-r from-[#8b0000] to-[#6b0000] text-white text-sm rounded-full font-medium"
-                        >
-                          {interest}
-                        </span>
-                      ))}
+                  {/* Research Interests — matched ones highlighted in gold */}
+                  {result.data.researchInterests.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                        Research Interests
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {result.data.researchInterests.map((interest, i) => {
+                          const isMatched = result.matchedKeywords.some(
+                            (kw) => kw.toLowerCase() === interest.toLowerCase()
+                              || interest.toLowerCase().includes(kw.toLowerCase())
+                          );
+                          return (
+                            <span
+                              key={i}
+                              className={
+                                isMatched
+                                  ? "px-3 py-1 bg-[#ffd100] text-[#8b0000] text-sm rounded-full font-semibold ring-1 ring-[#8b0000]/20"
+                                  : "px-3 py-1 bg-gradient-to-r from-[#8b0000] to-[#6b0000] text-white text-sm rounded-full font-medium"
+                              }
+                            >
+                              {interest}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* AI Justification */}
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
@@ -187,63 +199,43 @@ export function SearchResults({
                     </p>
                   </div>
 
-                  {/* Contact Section - Enhanced */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-                      Contact Information
-                    </p>
-                    <div className="flex flex-wrap items-center gap-4">
-                      {result.data.email && (
-                        <a
-                          href={`mailto:${result.data.email}`}
-                          className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
-                        >
-                          <Mail className="w-4 h-4" />
-                          {result.data.email}
-                        </a>
-                      )}
-                      {result.data.phone && (
-                        <a
-                          href={`tel:${result.data.phone}`}
-                          className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
-                        >
-                          <Phone className="w-4 h-4" />
-                          {result.data.phone}
-                        </a>
-                      )}
-                      {result.data.email && (
-                        <a
-                          href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research${result.data.researchInterests[0] ? ` in ${result.data.researchInterests[0]}` : ""}.%0D%0A%0D%0A`}
-                          className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
-                        >
-                          <Mail className="w-4 h-4" />
-                          Contact
-                        </a>
-                      )}
+                  {(result.data.email || result.data.phone) && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                        Contact Information
+                      </p>
+                      <div className="flex flex-wrap items-center gap-4">
+                        {result.data.email && (
+                          <a
+                            href={`mailto:${result.data.email}`}
+                            className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
+                          >
+                            <Mail className="w-4 h-4" />
+                            {result.data.email}
+                          </a>
+                        )}
+                        {result.data.phone && (
+                          <a
+                            href={`tel:${result.data.phone}`}
+                            className="flex items-center gap-2 text-sm text-gray-700 hover:text-[#8b0000] transition-colors"
+                          >
+                            <Phone className="w-4 h-4" />
+                            {result.data.phone}
+                          </a>
+                        )}
+                        {result.data.email && (
+                          <a
+                            href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research${result.data.researchInterests[0] ? ` in ${result.data.researchInterests[0]}` : ""}.%0D%0A%0D%0A`}
+                            className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                          >
+                            <Mail className="w-4 h-4" />
+                            Contact
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Matched Keywords */}
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                      Matched Keywords
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {result.matchedKeywords.slice(0, 5).map((keyword, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-1 bg-[#ffd100] text-[#8b0000] text-xs rounded-full font-medium"
-                        >
-                          {keyword}
-                        </span>
-                      ))}
-                      {result.matchedKeywords.length > 5 && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                          +{result.matchedKeywords.length - 5} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -273,30 +265,40 @@ export function SearchResults({
                     {result.data.abstract}
                   </p>
 
-                  {/* Matched Keywords & Link */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-wrap gap-2">
-                      {result.matchedKeywords.slice(0, 4).map((keyword, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium"
-                        >
-                          {keyword}
-                        </span>
-                      ))}
+                  {/* Keywords — matched ones highlighted in gold */}
+                  {"aiKeywords" in result.data && result.data.aiKeywords.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {result.data.aiKeywords.slice(0, 10).map((kw, i) => {
+                        const isMatched = result.matchedKeywords.some(
+                          (mk) => mk.toLowerCase() === kw.toLowerCase()
+                            || kw.toLowerCase().includes(mk.toLowerCase())
+                        );
+                        return (
+                          <span
+                            key={i}
+                            className={
+                              isMatched
+                                ? "px-2 py-1 bg-[#ffd100] text-[#8b0000] text-xs rounded-full font-semibold"
+                                : "px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-medium"
+                            }
+                          >
+                            {kw}
+                          </span>
+                        );
+                      })}
                     </div>
-                    {getPaperHref(result.data) && (
-                      <a
-                        href={getPaperHref(result.data)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
-                      >
-                        View Paper
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
-                  </div>
+                  )}
+                  {getPaperHref(result.data) && (
+                    <a
+                      href={getPaperHref(result.data)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
+                    >
+                      View Paper
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
                 </div>
               )}
 
@@ -326,28 +328,38 @@ export function SearchResults({
                     {result.data.description}
                   </p>
 
-                  {/* Matched Keywords & Link */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-wrap gap-2">
-                      {result.matchedKeywords.slice(0, 4).map((keyword, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium"
-                        >
-                          {keyword}
-                        </span>
-                      ))}
+                  {/* Keywords — matched ones highlighted in gold */}
+                  {"aiKeywords" in result.data && result.data.aiKeywords.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {result.data.aiKeywords.slice(0, 8).map((kw, i) => {
+                        const isMatched = result.matchedKeywords.some(
+                          (mk) => mk.toLowerCase() === kw.toLowerCase()
+                            || kw.toLowerCase().includes(mk.toLowerCase())
+                        );
+                        return (
+                          <span
+                            key={i}
+                            className={
+                              isMatched
+                                ? "px-2 py-1 bg-[#ffd100] text-[#8b0000] text-xs rounded-full font-semibold"
+                                : "px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-full font-medium"
+                            }
+                          >
+                            {kw}
+                          </span>
+                        );
+                      })}
                     </div>
-                    <a
-                      href={result.data.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
-                    >
-                      View Patent
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
+                  )}
+                  <a
+                    href={result.data.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-[#8b0000] hover:text-[#6b0000] font-medium transition-colors"
+                  >
+                    View Patent
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
                 </div>
               )}
 
@@ -388,17 +400,29 @@ export function SearchResults({
                     {result.data.description}
                   </p>
 
-                  {/* Matched Keywords */}
-                  <div className="flex flex-wrap gap-2">
-                    {result.matchedKeywords.slice(0, 5).map((keyword, i) => (
-                      <span
-                        key={i}
-                        className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
-                  </div>
+                  {/* Keywords — matched ones highlighted in gold */}
+                  {"aiKeywords" in result.data && result.data.aiKeywords.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {result.data.aiKeywords.slice(0, 8).map((kw, i) => {
+                        const isMatched = result.matchedKeywords.some(
+                          (mk) => mk.toLowerCase() === kw.toLowerCase()
+                            || kw.toLowerCase().includes(mk.toLowerCase())
+                        );
+                        return (
+                          <span
+                            key={i}
+                            className={
+                              isMatched
+                                ? "px-2 py-1 bg-[#ffd100] text-[#8b0000] text-xs rounded-full font-semibold"
+                                : "px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full font-medium"
+                            }
+                          >
+                            {kw}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
           </div>
@@ -414,10 +438,9 @@ export function SearchResults({
                 Math.min(prev + PAGE_SIZE, filteredResults.length),
               )
             }
-            className="px-5 py-2.5 rounded-full bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] text-sm font-medium transition-colors"
+            className="px-6 py-2.5 rounded-full bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] text-sm font-medium transition-colors"
           >
-            Load more (
-            {Math.min(PAGE_SIZE, filteredResults.length - visibleCount)} more)
+            Load {Math.min(PAGE_SIZE, filteredResults.length - visibleCount)} more results
           </button>
         </div>
       )}

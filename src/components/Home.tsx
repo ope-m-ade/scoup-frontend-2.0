@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { Search, TrendingUp, Users } from "lucide-react";
 import { Navbar } from "./Navbar";
 import { SearchResults } from "./SearchResults";
+import { Footer } from "./Footer";
 import { getSearchSuggestions, performSearch, setSearchDataset } from "../utils/searchEngine";
 import type { SearchResult } from "../data/searchData";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
@@ -615,87 +616,7 @@ export function Home({ onNavigate }: HomeProps) {
       )}
 
       {/* Footer */}
-      <footer className="bg-[#f5f5dc] border-t border-[#e5e5c5] mt-auto">
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            {/* Left - Branding */}
-            <div>
-              <div className="mb-4">
-                <span className="text-xl font-bold text-gray-900">SCOUP</span>
-              </div>
-              <p className="text-sm text-gray-600 leading-relaxed mb-4">
-                Salisbury University's centralized knowledge and collaboration platform. Connecting internal expertise with external opportunities to drive innovation.
-              </p>
-            </div>
-
-            {/* Middle - Resources */}
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-4">Resources</h3>
-              <ul className="space-y-3">
-                <li>
-                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    Documentation
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    Tutorials
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            {/* Right - About */}
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-4">About</h3>
-              <ul className="space-y-3">
-                <li>
-                  <button
-                    onClick={() => onNavigate("/about")}
-                    className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
-                  >
-                    SCOUP Overview
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    GitHub
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => onNavigate("/contact")} className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    Contact
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => onNavigate("/admin-login")}
-                    className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
-                  >
-                    Admin Login
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Bottom Copyright */}
-          <div className="flex flex-col md:flex-row justify-between items-center pt-8 mt-8 border-t border-[#e5e5c5]">
-            <p className="text-sm text-gray-600">© 2025 SCOUP Team. All rights reserved.</p>
-            <div className="flex gap-6 mt-4 md:mt-0">
-              <button type="button" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
-                Privacy Policy
-              </button>
-              <button type="button" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
-                Terms of Service
-              </button>
-              <button type="button" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
-                Cookie Policy
-              </button>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

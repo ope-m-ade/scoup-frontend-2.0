@@ -44,6 +44,13 @@ export interface UnifiedSearchResult {
   confidence: number;
   aiJustification: string;
   matchedKeywords: string[];
+  matchEvidence?: {
+    match_source: string;
+    match_strength: "exact" | "phrase" | "all_terms" | "fuzzy" | "semantic" | "partial";
+    matched_value: string;
+    matched_terms: string[];
+    score: number;
+  };
   data: Record<string, unknown>;
 }
 

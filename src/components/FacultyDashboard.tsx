@@ -9,6 +9,7 @@ import { AnalyticsPage } from "./dashboard/AnalyticsPage";
 import { NetworkPage } from "./dashboard/NetworkPage";
 import { BadgesWidget } from "./dashboard/BadgesWidget";
 import { DashboardOverview } from "./dashboard/DashboardOverview";
+import { VerificationBanner } from "./dashboard/VerificationBanner";
 import { Button } from "./ui/button";
 import {
   LogOut,
@@ -238,7 +239,10 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="p-8">{renderContent()}</div>
+        <div className="p-8">
+          <VerificationBanner />
+          {renderContent()}
+        </div>
       </main>
     </div>
   );

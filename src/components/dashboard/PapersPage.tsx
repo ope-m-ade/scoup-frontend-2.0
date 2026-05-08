@@ -1,297 +1,161 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { Plus, Edit2, Trash2, X, Save, ExternalLink, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
+import {
+  Plus, Edit2, Trash2, X, Save, ExternalLink, Sparkles,
+  ArrowLeft, Upload, Loader2, BookOpen, CheckSquare, Square,
+  Eye, EyeOff, FileText, Check,
+} from "lucide-react";
 import { papersAPI } from "../../utils/api";
 
+type PaperStatus = "published" | "in-review" | "draft";
+
 interface Paper {
-  id: number | string;
+  id: number;
   title: string;
   authors: string;
   journal: string;
-  year: string;
+  year: number | string | null;
   doi: string;
   abstract: string;
   keywords: string[];
-  status: "published" | "in-review" | "draft";
+  status: PaperStatus;
 }
 
-export function PapersPage() {
-  const [papers, setPapers] = useState<Paper[]>([]);
-  const [isLoadingPapers, setIsLoadingPapers] = useState(true);
-  const [isSavingPaper, setIsSavingPaper] = useState(false);
+type View = "list" | "edit" | "new";
+
+const isFakeDoi = (doi: string) =>
+  doi.startsWith("cv-import-") || doi.startsWith("manual:");
+
+const statusColors: Record<PaperStatus, string> = {
+  published: "bg-green-100 text-green-800",
+  "in-review": "bg-yellow-100 text-yellow-800",
+  draft: "bg-gray-100 text-gray-600",
+};
+
+const emptyForm = (): Omit<Paper, "id"> => ({
+  title: "", authors: "", journal: "", year: "", doi: "",
+  abstract: "", keywords: [], status: "draft",
+});
+
+// ── Edit / New paper full-page view ──────────────────────────────────────────
+function EditPaperView({
+  paper,
+  onSave,
+  onCancel,
+}: {
+  paper?: Paper;
+  onSave: (data: Omit<Paper, "id">, id?: number) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<Omit<Paper, "id">>(
+    paper
+      ? {
+          title: paper.title,
+          authors: paper.authors,
+          journal: paper.journal,
+          year: paper.year ?? "",
+          doi: isFakeDoi(paper.doi) ? "" : paper.doi,
+          abstract: paper.abstract,
+          keywords: paper.keywords,
+          status: paper.status,
+        }
+      : emptyForm(),
+  );
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<number | string | null>(null);
-  
-  const [formData, setFormData] = useState<Omit<Paper, "id">>({
-    title: "",
-    authors: "",
-    journal: "",
-    year: "",
-    doi: "",
-    abstract: "",
-    keywords: [],
-    status: "draft"
-  });
-
   const [keywordInput, setKeywordInput] = useState("");
-  const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
-  const [aiGeneratedKeywords, setAiGeneratedKeywords] = useState<string[]>([]);
 
-  useEffect(() => {
-    const loadPapers = async () => {
-      setIsLoadingPapers(true);
-      setError("");
+  // PDF abstract extraction
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
-      try {
-        const data = await papersAPI.getAll();
-        const rows = Array.isArray(data) ? data : data?.results || [];
+  // AI keyword generation
+  const [generatingKw, setGeneratingKw] = useState(false);
+  const [suggestedKw, setSuggestedKw] = useState<string[]>([]);
 
-        setPapers(
-          rows.map((paper: any, index: number) => ({
-            id: paper?.id ?? Date.now() + index,
-            title: paper?.title ?? "",
-            authors: paper?.authors ?? "",
-            journal: paper?.journal ?? "",
-            year: String(paper?.year ?? ""),
-            doi: paper?.doi ?? "",
-            abstract: paper?.abstract ?? "",
-            keywords: Array.isArray(paper?.keywords) ? paper.keywords : [],
-            status:
-              paper?.status === "published" ||
-              paper?.status === "in-review" ||
-              paper?.status === "draft"
-                ? paper.status
-                : "draft",
-          })),
-        );
-      } catch (err: any) {
-        setError(err?.message || "Unable to load papers.");
-      } finally {
-        setIsLoadingPapers(false);
-      }
-    };
+  const set = (k: keyof typeof form, v: any) =>
+    setForm(prev => ({ ...prev, [k]: v }));
 
-    loadPapers();
-  }, []);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) { setError("Title is required."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(form, paper?.id);
+    } catch (err: any) {
+      setError(err.message || "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAddKeyword = () => {
-    if (keywordInput.trim() && !formData.keywords.includes(keywordInput.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        keywords: [...prev.keywords, keywordInput.trim()]
-      }));
+  const handlePdfUpload = async (file: File) => {
+    setExtracting(true);
+    setExtractError("");
+    try {
+      const res = await papersAPI.extractAbstract(file);
+      set("abstract", res.abstract || "");
+    } catch (err: any) {
+      setExtractError(err.message || "Failed to extract abstract.");
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const addKeyword = () => {
+    const kw = keywordInput.trim();
+    if (kw && !form.keywords.includes(kw)) {
+      set("keywords", [...form.keywords, kw]);
       setKeywordInput("");
     }
   };
 
-  const handleRemoveKeyword = (keyword: string) => {
-    setFormData(prev => ({
-      ...prev,
-      keywords: prev.keywords.filter(k => k !== keyword)
-    }));
-  };
-
-  const handleAdd = () => {
-    setIsAdding(true);
-    setFormData({
-      title: "",
-      authors: "",
-      journal: "",
-      year: "",
-      doi: "",
-      abstract: "",
-      keywords: [],
-      status: "draft"
-    });
-  };
-
-  const handleEdit = (paper: Paper) => {
-    setEditingId(paper.id);
-    setFormData({
-      title: paper.title,
-      authors: paper.authors,
-      journal: paper.journal,
-      year: paper.year,
-      doi: paper.doi,
-      abstract: paper.abstract,
-      keywords: paper.keywords,
-      status: paper.status
-    });
-  };
-
-  const handleSave = async () => {
-    setIsSavingPaper(true);
-    setError("");
-
-    const payload = {
-      title: formData.title,
-      authors: formData.authors,
-      journal: formData.journal,
-      year: Number(formData.year) || formData.year,
-      doi: formData.doi,
-      abstract: formData.abstract,
-      keywords: formData.keywords,
-      status: formData.status,
-    };
-
+  const handleGenerateKeywords = async () => {
+    if (!form.title.trim()) return;
+    setGeneratingKw(true);
+    setSuggestedKw([]);
     try {
-      if (editingId !== null) {
-        const updated = await papersAPI.update(Number(editingId), payload);
-        setPapers((prev) =>
-          prev.map((p) =>
-            p.id === editingId
-              ? {
-                  ...p,
-                  ...formData,
-                  id: updated?.id ?? editingId,
-                }
-              : p,
-          ),
-        );
-        setEditingId(null);
-      } else {
-        const created = await papersAPI.create(payload);
-        setPapers((prev) => [
-          ...prev,
-          {
-            ...formData,
-            id: created?.id ?? Date.now(),
-          },
-        ]);
-        setIsAdding(false);
-      }
-
-      setFormData({
-        title: "",
-        authors: "",
-        journal: "",
-        year: "",
-        doi: "",
-        abstract: "",
-        keywords: [],
-        status: "draft"
-      });
-    } catch (err: any) {
-      setError(err?.message || "Unable to save paper.");
+      const res = await papersAPI.generateKeywords(form.title, form.abstract);
+      setSuggestedKw(res.keywords || []);
+    } catch {
+      // silently fail
     } finally {
-      setIsSavingPaper(false);
+      setGeneratingKw(false);
     }
   };
 
-  const handleCancel = () => {
-    setIsAdding(false);
-    setEditingId(null);
-    setFormData({
-      title: "",
-      authors: "",
-      journal: "",
-      year: "",
-      doi: "",
-      abstract: "",
-      keywords: [],
-      status: "draft"
-    });
-  };
-
-  const handleDelete = async (id: number | string) => {
-    if (confirm("Are you sure you want to delete this paper?")) {
-      setError("");
-      try {
-        await papersAPI.delete(Number(id));
-        setPapers(prev => prev.filter(p => p.id !== id));
-      } catch (err: any) {
-        setError(err?.message || "Unable to delete paper.");
-      }
-    }
-  };
-
-  const getStatusColor = (status: Paper["status"]) => {
-    switch (status) {
-      case "published":
-        return "bg-green-100 text-green-800";
-      case "in-review":
-        return "bg-yellow-100 text-yellow-800";
-      case "draft":
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const generateAIKeywords = async () => {
-    setIsGeneratingKeywords(true);
-    setAiGeneratedKeywords([]);
-
-    // Simulate AI generation with delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Generate keywords based on title and abstract
-    const title = formData.title.toLowerCase();
-    const abstract = formData.abstract.toLowerCase();
-    const combined = `${title} ${abstract}`;
-    
-    let generatedKeywords: string[] = [];
-    
-    if (combined.includes('machine learning') || combined.includes('ai') || combined.includes('artificial intelligence')) {
-      generatedKeywords = ["Machine Learning", "Artificial Intelligence", "Neural Networks", "Deep Learning", "Data Science"];
-    } else if (combined.includes('biology') || combined.includes('genetics') || combined.includes('molecular')) {
-      generatedKeywords = ["Molecular Biology", "Genetics", "Biotechnology", "Cell Biology", "Genomics"];
-    } else if (combined.includes('education') || combined.includes('learning') || combined.includes('teaching')) {
-      generatedKeywords = ["Education", "Pedagogy", "Learning", "Curriculum", "Assessment"];
-    } else if (combined.includes('business') || combined.includes('management') || combined.includes('organization')) {
-      generatedKeywords = ["Business Management", "Strategy", "Organization", "Leadership", "Innovation"];
-    } else if (combined.includes('engineering') || combined.includes('design') || combined.includes('systems')) {
-      generatedKeywords = ["Engineering", "Systems Design", "Innovation", "Technology", "Applied Research"];
-    } else {
-      // Default keywords based on common academic terms
-      generatedKeywords = ["Research", "Analysis", "Methodology", "Innovation", "Applied Science"];
-    }
-
-    setAiGeneratedKeywords(generatedKeywords);
-    setIsGeneratingKeywords(false);
-  };
-
-  const acceptAIKeywords = () => {
-    setFormData(prev => ({ ...prev, keywords: aiGeneratedKeywords }));
-    setAiGeneratedKeywords([]);
-  };
-
-  const rejectAIKeywords = () => {
-    setAiGeneratedKeywords([]);
+  const acceptSuggestedKw = () => {
+    const merged = [...new Set([...form.keywords, ...suggestedKw])];
+    set("keywords", merged);
+    setSuggestedKw([]);
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Papers</h1>
-          <p className="text-gray-600 mt-1">Manage your research publications</p>
-        </div>
-        {!isAdding && !editingId && (
-          <Button onClick={handleAdd} className="bg-[#8b0000] hover:bg-[#700000]">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Paper
-          </Button>
-        )}
-      </div>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Back nav */}
+      <button
+        onClick={onCancel}
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back to Papers
+      </button>
 
-      {isLoadingPapers && (
-        <Alert>
-          <AlertDescription>Loading papers...</AlertDescription>
-        </Alert>
-      )}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">
+          {paper ? "Edit Paper" : "Add New Paper"}
+        </h1>
+        <p className="text-gray-500 mt-1 text-sm">
+          {paper ? "Update the details for this paper." : "Manually add a research paper to your profile."}
+        </p>
+      </div>
 
       {error && (
         <Alert variant="destructive">
@@ -299,281 +163,486 @@ export function PapersPage() {
         </Alert>
       )}
 
-      {/* Add/Edit Form */}
-      {(isAdding || editingId) && (
-        <Card className="p-6 border-2 border-[#8b0000]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">
-              {editingId ? "Edit Paper" : "Add New Paper"}
-            </h2>
-            <Button onClick={handleCancel} variant="ghost" size="sm">
-              <X className="w-4 h-4" />
-            </Button>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Title */}
+        <Card className="p-6 space-y-4">
+          <h2 className="font-semibold text-gray-800">Basic Information</h2>
+
+          <div>
+            <Label htmlFor="title">Title *</Label>
+            <Input
+              id="title" value={form.title}
+              onChange={e => set("title", e.target.value)}
+              placeholder="Full paper title"
+              className="mt-1"
+            />
           </div>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="title">Title *</Label>
+              <Label htmlFor="authors">Authors</Label>
               <Input
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="Paper title"
+                id="authors" value={form.authors}
+                onChange={e => set("authors", e.target.value)}
+                placeholder="Comma-separated author names"
+                className="mt-1"
               />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="authors">Authors *</Label>
-                <Input
-                  id="authors"
-                  name="authors"
-                  value={formData.authors}
-                  onChange={handleInputChange}
-                  placeholder="Comma-separated list of authors"
-                />
-              </div>
-              <div>
-                <Label htmlFor="journal">Journal/Conference *</Label>
-                <Input
-                  id="journal"
-                  name="journal"
-                  value={formData.journal}
-                  onChange={handleInputChange}
-                  placeholder="Publication venue"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="year">Year *</Label>
-                <Input
-                  id="year"
-                  name="year"
-                  value={formData.year}
-                  onChange={handleInputChange}
-                  placeholder="2024"
-                />
-              </div>
-              <div>
-                <Label htmlFor="doi">DOI</Label>
-                <Input
-                  id="doi"
-                  name="doi"
-                  value={formData.doi}
-                  onChange={handleInputChange}
-                  placeholder="10.xxxx/xxxxx"
-                />
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="in-review">In Review</option>
-                  <option value="published">Published</option>
-                </select>
-              </div>
-            </div>
-
             <div>
-              <Label htmlFor="abstract">Abstract</Label>
-              <Textarea
-                id="abstract"
-                name="abstract"
-                value={formData.abstract}
-                onChange={handleInputChange}
-                placeholder="Paper abstract"
-                className="min-h-[100px]"
+              <Label htmlFor="journal">Journal / Conference</Label>
+              <Input
+                id="journal" value={form.journal}
+                onChange={e => set("journal", e.target.value)}
+                placeholder="Publication venue"
+                className="mt-1"
               />
             </div>
+          </div>
 
-            {/* AI Keywords Generation Banner */}
-            {aiGeneratedKeywords.length > 0 && (
-              <Alert className="border-2 border-[#ffd100] bg-yellow-50">
-                <Sparkles className="h-4 w-4 text-[#8b0000]" />
-                <AlertDescription>
-                  <div className="space-y-3">
-                    <p className="font-semibold text-[#8b0000]">
-                      AI-Generated Keywords
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {aiGeneratedKeywords.map((keyword) => (
-                        <Badge key={keyword} variant="secondary">
-                          {keyword}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={acceptAIKeywords}
-                        size="sm"
-                        className="bg-[#8b0000] hover:bg-[#700000]"
-                      >
-                        Accept
-                      </Button>
-                      <Button
-                        onClick={rejectAIKeywords}
-                        size="sm"
-                        variant="outline"
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="keywords">Keywords</Label>
-                <Button
-                  onClick={generateAIKeywords}
-                  size="sm"
-                  variant="outline"
-                  disabled={isGeneratingKeywords || !formData.title || !formData.abstract}
-                  className="text-[#8b0000] border-[#8b0000] hover:bg-[#8b0000] hover:text-white"
-                  type="button"
-                >
-                  {isGeneratingKeywords ? (
-                    <>
-                      <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate with AI
-                    </>
-                  )}
-                </Button>
-              </div>
-              <div className="flex gap-2 mb-2">
-                <Input
-                  id="keywords"
-                  value={keywordInput}
-                  onChange={(e) => setKeywordInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
-                  placeholder="Add keyword and press Enter"
-                />
-                <Button onClick={handleAddKeyword} size="sm" type="button">
-                  Add
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {formData.keywords.map((keyword) => (
-                  <Badge key={keyword} variant="secondary" className="gap-1">
-                    {keyword}
-                    <button
-                      onClick={() => handleRemoveKeyword(keyword)}
-                      className="ml-1 hover:text-red-600"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+              <Label htmlFor="year">Year</Label>
+              <Input
+                id="year" value={String(form.year ?? "")}
+                onChange={e => set("year", e.target.value)}
+                placeholder="2024"
+                className="mt-1"
+              />
             </div>
-
-            <div className="flex gap-2 pt-4">
-              <Button
-                onClick={handleSave}
-                className="bg-green-600 hover:bg-green-700"
-                disabled={isSavingPaper}
+            <div>
+              <Label htmlFor="doi">DOI</Label>
+              <Input
+                id="doi" value={form.doi}
+                onChange={e => set("doi", e.target.value)}
+                placeholder="10.xxxx/xxxxx"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="status">Visibility</Label>
+              <select
+                id="status"
+                value={form.status}
+                onChange={e => set("status", e.target.value as PaperStatus)}
+                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Save className="w-4 h-4 mr-2" />
-                {isSavingPaper ? "Saving..." : "Save Paper"}
-              </Button>
-              <Button onClick={handleCancel} variant="outline">
-                Cancel
-              </Button>
+                <option value="draft">Draft (not public)</option>
+                <option value="in-review">In Review</option>
+                <option value="published">Published (public)</option>
+              </select>
             </div>
           </div>
         </Card>
+
+        {/* Abstract */}
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800">Abstract</h2>
+            <div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={e => e.target.files?.[0] && handlePdfUpload(e.target.files[0])}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={extracting}
+                onClick={() => fileRef.current?.click()}
+                className="text-[#8b0000] border-[#8b0000] hover:bg-[#8b0000] hover:text-white"
+              >
+                {extracting
+                  ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Extracting…</>
+                  : <><Upload className="w-4 h-4 mr-1.5" /> Upload paper PDF to auto-extract</>}
+              </Button>
+            </div>
+          </div>
+
+          {extractError && (
+            <p className="text-xs text-red-600">{extractError}</p>
+          )}
+
+          <Textarea
+            value={form.abstract}
+            onChange={e => set("abstract", e.target.value)}
+            placeholder="Paper abstract — or upload the paper PDF above to extract it automatically"
+            className="min-h-[140px] text-sm"
+          />
+          <p className="text-xs text-gray-400">
+            You can paste the abstract manually, or upload the paper PDF and AI will extract it for you.
+          </p>
+        </Card>
+
+        {/* Keywords */}
+        <Card className="p-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800">Keywords</h2>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={generatingKw || !form.title.trim()}
+              onClick={handleGenerateKeywords}
+              className="text-[#8b0000] border-[#8b0000] hover:bg-[#8b0000] hover:text-white"
+            >
+              {generatingKw
+                ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Generating…</>
+                : <><Sparkles className="w-3.5 h-3.5 mr-1.5" /> Generate with AI</>}
+            </Button>
+          </div>
+
+          {/* AI suggestions */}
+          {suggestedKw.length > 0 && (
+            <div className="rounded-lg border border-[#ffd100]/60 bg-yellow-50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-[#8b0000] flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" /> AI-suggested keywords
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedKw.map(kw => (
+                  <Badge key={kw} className="bg-yellow-100 text-yellow-800 border border-yellow-300">{kw}</Badge>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button type="button" size="sm" onClick={acceptSuggestedKw} className="bg-[#8b0000] hover:bg-[#6b0000] text-white h-7 text-xs">
+                  <Check className="w-3 h-3 mr-1" /> Accept all
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setSuggestedKw([])} className="h-7 text-xs text-gray-500">
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Input
+              value={keywordInput}
+              onChange={e => setKeywordInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addKeyword(); } }}
+              placeholder="Or type a keyword and press Enter"
+              className="flex-1"
+            />
+            <Button type="button" variant="outline" onClick={addKeyword}>Add</Button>
+          </div>
+          {form.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {form.keywords.map(kw => (
+                <Badge key={kw} variant="secondary" className="gap-1 pr-1">
+                  {kw}
+                  <button
+                    type="button"
+                    onClick={() => set("keywords", form.keywords.filter(k => k !== kw))}
+                    className="hover:text-red-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Actions */}
+        <div className="flex gap-3 pb-8">
+          <Button type="submit" disabled={saving} className="bg-[#8b0000] hover:bg-[#6b0000] text-white">
+            <Save className="w-4 h-4 mr-1.5" />
+            {saving ? "Saving…" : "Save Paper"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Main Papers list view ─────────────────────────────────────────────────────
+export function PapersPage() {
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [view, setView] = useState<View>("list");
+  const [editTarget, setEditTarget] = useState<Paper | undefined>();
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkPublishing, setBulkPublishing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<PaperStatus | "all">("all");
+
+  const normalise = (p: any, i = 0): Paper => ({
+    id: p?.id ?? Date.now() + i,
+    title: p?.title ?? "",
+    authors: Array.isArray(p?.authors)
+      ? p.authors.map((a: any) => a?.name ?? a).join(", ")
+      : (p?.authors ?? ""),
+    journal: p?.journal ?? "",
+    year: p?.year ?? (p?.date_published ? new Date(p.date_published).getFullYear() : null),
+    doi: p?.doi ?? "",
+    abstract: p?.abstract ?? "",
+    keywords: Array.isArray(p?.keywords) ? p.keywords : [],
+    status:
+      p?.status === "published" || p?.status === "in-review" || p?.status === "draft"
+        ? p.status
+        : "published",
+  });
+
+  useEffect(() => {
+    setLoading(true);
+    papersAPI.getAll()
+      .then(data => {
+        const rows = Array.isArray(data) ? data : (data?.results ?? []);
+        setPapers(rows.map(normalise));
+      })
+      .catch(err => setError(err?.message || "Unable to load papers."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (form: Omit<Paper, "id">, id?: number) => {
+    const payload = {
+      title: form.title,
+      authors: form.authors,
+      journal: form.journal,
+      year_input: form.year ? String(form.year) : "",
+      doi: form.doi || undefined,
+      abstract: form.abstract,
+      keywords: form.keywords,
+      status: form.status,
+    };
+
+    if (id !== undefined) {
+      const updated = await papersAPI.update(id, payload);
+      setPapers(prev => prev.map(p => p.id === id ? normalise({ ...updated, id }) : p));
+    } else {
+      const created = await papersAPI.create(payload);
+      setPapers(prev => [normalise(created), ...prev]);
+    }
+    setView("list");
+    setEditTarget(undefined);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this paper? This cannot be undone.")) return;
+    try {
+      await papersAPI.delete(id);
+      setPapers(prev => prev.filter(p => p.id !== id));
+      setSelectedIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+    } catch (err: any) {
+      setError(err?.message || "Delete failed.");
+    }
+  };
+
+  const handleBulkPublish = async () => {
+    setBulkPublishing(true);
+    try {
+      const ids = selectedIds.size > 0 ? [...selectedIds] : undefined;
+      await papersAPI.bulkPublish(ids);
+      setPapers(prev =>
+        prev.map(p =>
+          (!ids || ids.includes(p.id)) && p.status === "draft"
+            ? { ...p, status: "published" }
+            : p,
+        ),
+      );
+      setSelectedIds(new Set());
+    } catch (err: any) {
+      setError(err?.message || "Bulk publish failed.");
+    } finally {
+      setBulkPublishing(false);
+    }
+  };
+
+  const toggleSelect = (id: number) =>
+    setSelectedIds(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+
+  const draftPapers = papers.filter(p => p.status === "draft");
+  const filteredPapers =
+    statusFilter === "all" ? papers : papers.filter(p => p.status === statusFilter);
+
+  // ── Edit / new view ─────────────────────────────────────────────────────
+  if (view === "edit" || view === "new") {
+    return (
+      <EditPaperView
+        paper={editTarget}
+        onSave={handleSave}
+        onCancel={() => { setView("list"); setEditTarget(undefined); }}
+      />
+    );
+  }
+
+  // ── List view ────────────────────────────────────────────────────────────
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Papers</h1>
+          <p className="text-gray-600 mt-1">Manage your research publications</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {draftPapers.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleBulkPublish}
+              disabled={bulkPublishing}
+              className="border-green-600 text-green-700 hover:bg-green-50"
+            >
+              {bulkPublishing
+                ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Publishing…</>
+                : <><Eye className="w-4 h-4 mr-1.5" />
+                  {selectedIds.size > 0
+                    ? `Publish ${selectedIds.size} selected`
+                    : `Publish all drafts (${draftPapers.length})`}
+                </>}
+            </Button>
+          )}
+          <Button
+            onClick={() => { setEditTarget(undefined); setView("new"); }}
+            className="bg-[#8b0000] hover:bg-[#6b0000] text-white"
+          >
+            <Plus className="w-4 h-4 mr-1.5" /> Add Paper
+          </Button>
+        </div>
+      </div>
+
+      {loading && <Alert><AlertDescription>Loading papers…</AlertDescription></Alert>}
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+
+      {/* Filter tabs */}
+      {papers.length > 0 && (
+        <div className="flex gap-1 border-b border-gray-200 pb-0">
+          {(["all", "published", "draft", "in-review"] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={`px-4 py-2 text-sm font-medium rounded-t transition-colors ${
+                statusFilter === f
+                  ? "bg-white border border-b-white border-gray-200 text-[#8b0000] -mb-px"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              {f === "all" ? `All (${papers.length})` : `${f.charAt(0).toUpperCase() + f.slice(1)} (${papers.filter(p => p.status === f).length})`}
+            </button>
+          ))}
+        </div>
       )}
 
-      {/* Papers List */}
-      <div className="space-y-4">
-        {papers.map((paper) => (
-          <Card key={paper.id} className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-start gap-3 mb-2">
-                  <h3 className="text-xl font-semibold text-gray-900 flex-1">
-                    {paper.title}
-                  </h3>
-                  <Badge className={getStatusColor(paper.status)}>
-                    {paper.status}
-                  </Badge>
-                </div>
-                
-                <p className="text-gray-600 mb-2">{paper.authors}</p>
-                
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mb-3">
-                  <span>{paper.journal}</span>
-                  <span>•</span>
-                  <span>{paper.year}</span>
-                  {paper.doi && (
-                    <>
-                      <span>•</span>
+      {/* Papers list */}
+      <div className="space-y-3">
+        {filteredPapers.map(paper => {
+          const displayDoi = isFakeDoi(paper.doi) ? null : paper.doi;
+          const isSelected = selectedIds.has(paper.id);
+          return (
+            <Card
+              key={paper.id}
+              className={`p-5 transition-all ${paper.status === "draft" ? "border-dashed border-gray-300" : ""} ${isSelected ? "ring-2 ring-[#8b0000]/30" : ""}`}
+            >
+              <div className="flex items-start gap-3">
+                {/* Checkbox for draft selection */}
+                {paper.status === "draft" && (
+                  <button
+                    onClick={() => toggleSelect(paper.id)}
+                    className="mt-0.5 text-gray-400 hover:text-[#8b0000] shrink-0 transition-colors"
+                  >
+                    {isSelected
+                      ? <CheckSquare className="w-5 h-5 text-[#8b0000]" />
+                      : <Square className="w-5 h-5" />}
+                  </button>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-2 mb-1">
+                    <h3 className="font-semibold text-gray-900 flex-1 leading-snug">{paper.title}</h3>
+                    <Badge className={`shrink-0 ${statusColors[paper.status]}`}>
+                      {paper.status === "draft"
+                        ? <><EyeOff className="w-3 h-3 mr-1" />Draft</>
+                        : paper.status === "published"
+                        ? <><Eye className="w-3 h-3 mr-1" />Published</>
+                        : "In Review"}
+                    </Badge>
+                  </div>
+
+                  {paper.authors && (
+                    <p className="text-sm text-gray-600 mb-1">{paper.authors}</p>
+                  )}
+
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-gray-500 mb-2">
+                    {paper.journal && <span>{paper.journal}</span>}
+                    {paper.year && <span>· {paper.year}</span>}
+                    {displayDoi && (
                       <a
-                        href={`https://doi.org/${paper.doi}`}
+                        href={`https://doi.org/${displayDoi}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#8b0000] hover:underline flex items-center gap-1"
+                        className="text-blue-600 hover:underline flex items-center gap-0.5"
                       >
-                        {paper.doi}
+                        · {displayDoi}
                         <ExternalLink className="w-3 h-3" />
                       </a>
-                    </>
+                    )}
+                  </div>
+
+                  {paper.abstract
+                    ? <p className="text-sm text-gray-600 line-clamp-2 mb-2">{paper.abstract}</p>
+                    : <p className="text-xs text-amber-600 italic mb-2">No abstract — edit to add one or upload the paper PDF</p>}
+
+                  {paper.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {paper.keywords.map(kw => (
+                        <Badge key={kw} variant="outline" className="text-xs">{kw}</Badge>
+                      ))}
+                    </div>
                   )}
                 </div>
 
-                <p className="text-gray-700 mb-3">{paper.abstract}</p>
-
-                <div className="flex flex-wrap gap-2">
-                  {paper.keywords.map((keyword) => (
-                    <Badge key={keyword} variant="outline">
-                      {keyword}
-                    </Badge>
-                  ))}
+                {/* Actions */}
+                <div className="flex flex-col gap-1.5 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setEditTarget(paper); setView("edit"); }}
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </Button>
+                  {paper.status === "draft" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-500 text-green-700 hover:bg-green-50"
+                      onClick={async () => {
+                        await papersAPI.bulkPublish([paper.id]);
+                        setPapers(prev => prev.map(p => p.id === paper.id ? { ...p, status: "published" } : p));
+                      }}
+                      title="Publish this paper"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:bg-red-50"
+                    onClick={() => handleDelete(paper.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </div>
+            </Card>
+          );
+        })}
 
-              {!isAdding && !editingId && (
-                <div className="flex gap-2 ml-4">
-                  <Button
-                    onClick={() => handleEdit(paper)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    onClick={() => handleDelete(paper.id)}
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
-
-        {papers.length === 0 && !isAdding && (
+        {filteredPapers.length === 0 && !loading && (
           <Card className="p-12 text-center">
-            <p className="text-gray-500">No papers added yet. Click "Add Paper" to get started.</p>
+            <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">No papers yet</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Add papers manually, or use the <strong>Upload CV</strong> tab to extract them automatically.
+            </p>
           </Card>
         )}
       </div>

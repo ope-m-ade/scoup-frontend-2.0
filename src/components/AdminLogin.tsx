@@ -113,14 +113,14 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                   value={formData.password}
                   onChange={(e) => handleInputChange("password", e.target.value)}
                   placeholder="Enter your password"
-                  className="pl-11 pr-11 h-12 border-gray-300"
+                  className="pl-11 pr-10 h-12 border-gray-300"
                   required
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-transparent"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                   onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? (

@@ -141,6 +141,7 @@ export async function performSearch(query: string): Promise<SearchResult[]> {
         confidence: item.confidence,
         aiJustification: item.aiJustification,
         matchedKeywords: item.matchedKeywords,
+        matchEvidence: item.matchEvidence,
       };
     });
   } catch {

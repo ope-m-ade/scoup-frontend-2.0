@@ -1,6 +1,7 @@
 import { Button } from "./ui/button";
 import { ArrowRight, Target, Network, Building2, BarChart3, MessageSquare, Users, Zap, Shield, Headphones } from "lucide-react";
 import { Navbar } from "./Navbar";
+import { Footer } from "./Footer";
 
 interface AboutProps {
   onNavigate: (path: string) => void;
@@ -122,8 +123,11 @@ export function About({ onNavigate }: AboutProps) {
                 Learn How It Works
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button> */}
-              <Button className="bg-[#8b0000] hover:bg-[#700000] text-white px-8 py-6 text-base">
-                Request Access
+              <Button
+                onClick={() => onNavigate("/faculty-signup")}
+                className="bg-[#8b0000] hover:bg-[#700000] text-white px-8 py-6 text-base"
+              >
+                Sign Up
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
               <Button
@@ -175,79 +179,7 @@ export function About({ onNavigate }: AboutProps) {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#f5f5dc] border-t border-[#e5e5c5]">
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            {/* Left - Branding */}
-            <div>
-              <div className="mb-4">
-                <span className="text-xl font-bold text-gray-900">SCOUP</span>
-              </div>
-              <p className="text-sm text-gray-600 leading-relaxed mb-4">
-                Salisbury University's centralized knowledge and collaboration platform. Connecting internal expertise with external opportunities to drive innovation.
-              </p>
-            </div>
-
-            {/* Middle - Resources */}
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-4">Resources</h3>
-              <ul className="space-y-3">
-                <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    Documentation
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    Tutorials
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Right - About */}
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-4">About</h3>
-              <ul className="space-y-3">
-                <li>
-                  <button
-                    onClick={() => onNavigate("/about")}
-                    className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
-                  >
-                    SCOUP Overview
-                  </button>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    GitHub
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm">
-                    Contact
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Bottom Copyright */}
-          <div className="flex flex-col md:flex-row justify-between items-center pt-8 mt-8 border-t border-[#e5e5c5]">
-            <p className="text-sm text-gray-600">© 2025 SCOUP Team. All rights reserved.</p>
-            <div className="flex gap-6 mt-4 md:mt-0">
-              <a href="#" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
-                Privacy Policy
-              </a>
-              <a href="#" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
-                Terms of Service
-              </a>
-              <a href="#" className="text-sm text-gray-600 hover:text-[#8b0000] transition-colors">
-                Cookie Policy
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

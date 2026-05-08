@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,6 +18,7 @@ import {
   University,
   ArrowLeft,
   User,
+  CheckCircle,
 } from "lucide-react";
 import { authAPI } from "../utils/api";
 
@@ -38,6 +39,19 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    if (!success) return;
+    const timer = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { clearInterval(timer); onBack?.(); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [success]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,9 +87,7 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
         lastName: formData.lastName,
       });
 
-      await authAPI.login(formData.username, formData.password);
-
-      onSignupSuccess?.();
+      setSuccess(true);
     } catch (err: any) {
       console.error("Signup error:", err);
       setError(err.message || "Signup failed. Please try again.");
@@ -123,6 +135,20 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
           </CardHeader>
 
           <CardContent>
+            {success ? (
+              <div className="text-center py-6 space-y-4">
+                <CheckCircle className="w-14 h-14 text-green-500 mx-auto" />
+                <p className="text-gray-800 font-semibold text-lg">Account created!</p>
+                <p className="text-sm text-gray-500">
+                  You can now sign in and verify your faculty email to go live on SCOUP.
+                </p>
+                <p className="text-xs text-gray-400">Redirecting to login in {countdown}s…</p>
+                <Button className="w-full" onClick={() => onBack?.()}>
+                  Go to login
+                </Button>
+              </div>
+            ) : (
+            <>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
@@ -266,6 +292,8 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                 )}
               </p>
             </div>
+            </>
+          )}
           </CardContent>
         </Card>
 

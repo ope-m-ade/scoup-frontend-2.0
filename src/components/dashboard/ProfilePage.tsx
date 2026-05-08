@@ -9,7 +9,7 @@ import { Camera, Plus, X, Edit2, Save, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
 import { ProfileCompletionWidget } from "./ProfileCompletionWidget";
-import { apiCall, authAPI, facultyAPI } from "../../utils/api";
+import { apiCall, authAPI, facultyAPI, cvAPI } from "../../utils/api";
 import { getInitials } from "../../utils/avatar";
 
 interface Qualification {
@@ -275,54 +275,86 @@ export function ProfilePage() {
     }
   };
 
+  // ── Hardcoded fallbacks (used when OpenAI is unavailable) ────────────────
+  const fallbackBio = () => {
+    const name = `${formData.firstName} ${formData.lastName}`.trim() || "This faculty member";
+    const title = formData.title || "faculty member";
+    const dept = formData.department || "their department";
+    const qual = qualifications[0];
+    const degreeStr = qual?.degree
+      ? `With ${qual.degree.toLowerCase().startsWith("ph") ? "a Ph.D." : `a ${qual.degree}`} from ${qual.institution || "a leading institution"}, `
+      : "";
+    return `${name} is a ${title} in the ${dept} department at Salisbury University. ${degreeStr}they bring expertise and a commitment to research and student success. Their work spans interdisciplinary areas within ${dept.toLowerCase()}, contributing to the university's mission of academic excellence.`;
+  };
+
+  const fallbackResearchInterests = () => {
+    const dept = formData.department.toLowerCase();
+    const map: Record<string, string> = {
+      computer: "Artificial Intelligence, Machine Learning, Data Science, Software Engineering, Cybersecurity, Human-Computer Interaction",
+      business: "Strategic Management, Organizational Behavior, Marketing Analytics, Entrepreneurship, Financial Management, Innovation",
+      biology: "Molecular Biology, Genetics, Ecology, Evolutionary Biology, Biotechnology, Environmental Science",
+      education: "Curriculum Development, Educational Technology, Student Assessment, Inclusive Education, Learning Analytics",
+      engineering: "Systems Engineering, Sustainable Design, Automation, Materials Science, Applied Research",
+      math: "Applied Mathematics, Statistical Analysis, Computational Methods, Operations Research, Mathematical Modeling",
+      physics: "Computational Physics, Quantum Mechanics, Applied Physics, Materials Science, Optics",
+      chemistry: "Organic Chemistry, Analytical Chemistry, Materials Chemistry, Environmental Chemistry, Biochemistry",
+      psychology: "Cognitive Psychology, Behavioral Research, Clinical Psychology, Neuropsychology, Social Psychology",
+      nursing: "Patient Care, Healthcare Informatics, Evidence-Based Practice, Community Health, Clinical Research",
+    };
+    const match = Object.keys(map).find(k => dept.includes(k));
+    return match ? map[match] : `${formData.department}, Research Methodology, Interdisciplinary Studies, Applied Research, Academic Collaboration`;
+  };
+
+  const fallbackKeywords = (): string[] => {
+    const dept = formData.department.toLowerCase();
+    const base: Record<string, string[]> = {
+      computer: ["Artificial Intelligence", "Machine Learning", "Data Science", "Software Engineering", "Cybersecurity"],
+      business: ["Strategic Management", "Marketing Analytics", "Entrepreneurship", "Business Intelligence", "Finance"],
+      biology: ["Molecular Biology", "Genetics", "Ecology", "Biotechnology", "Environmental Science"],
+      education: ["Curriculum Design", "Educational Technology", "Learning Analytics", "Assessment", "Pedagogy"],
+      engineering: ["Systems Engineering", "Automation", "Sustainable Design", "Materials Science", "Applied Research"],
+    };
+    const match = Object.keys(base).find(k => dept.includes(k));
+    return match ? base[match] : ["Research", "Interdisciplinary Studies", "Higher Education", "Applied Science", "Academic Excellence"];
+  };
+
   const generateAIBio = async () => {
     setIsGeneratingBio(true);
     setAiSuggestion({ type: null, content: "" });
-
-    // Simulate AI generation with delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Generate bio based on profile data
-    const highestDegree = qualifications[0]?.degree || "advanced degree";
-    const department = formData.department;
-    const title = formData.title;
-    const name = `${formData.firstName} ${formData.lastName}`;
-
-    const generatedBio = `${name} is ${title} in the ${department} department at Salisbury University. With ${highestDegree.includes('Ph.D.') ? 'a Ph.D.' : 'an ' + highestDegree} from ${qualifications[0]?.institution || 'a prestigious institution'}, Dr. ${formData.lastName} brings extensive expertise in ${department.toLowerCase()} to the university community. Their work focuses on advancing knowledge and fostering student success through innovative research and dedicated teaching. Dr. ${formData.lastName} is committed to interdisciplinary collaboration and contributing to Salisbury University's mission of excellence in education and research.`;
-
-    setAiSuggestion({ type: 'bio', content: generatedBio });
-    setIsGeneratingBio(false);
+    try {
+      const res = await cvAPI.generateBio({
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
+        title: formData.title,
+        department: formData.department,
+        qualifications,
+        research_interests: formData.researchInterests,
+        keywords,
+      });
+      setAiSuggestion({ type: "bio", content: res.bio || fallbackBio() });
+    } catch {
+      // AI unavailable — use template fallback
+      setAiSuggestion({ type: "bio", content: fallbackBio() });
+    } finally {
+      setIsGeneratingBio(false);
+    }
   };
 
   const generateAIResearchInterests = async () => {
     setIsGeneratingResearch(true);
     setAiSuggestion({ type: null, content: "" });
-
-    // Simulate AI generation with delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Generate research interests based on department
-    const department = formData.department;
-    const degreeField = qualifications[0]?.degree.split(' in ')[1] || department;
-    
-    let generatedInterests = "";
-    
-    if (department.toLowerCase().includes('computer') || department.toLowerCase().includes('cs')) {
-      generatedInterests = "Artificial Intelligence, Machine Learning, Natural Language Processing, Data Science, Software Engineering, Human-Computer Interaction, Cybersecurity, Cloud Computing, Algorithm Design";
-    } else if (department.toLowerCase().includes('business')) {
-      generatedInterests = "Strategic Management, Organizational Behavior, Marketing Analytics, Entrepreneurship, Financial Management, Supply Chain Management, Business Intelligence, Innovation Management";
-    } else if (department.toLowerCase().includes('biology')) {
-      generatedInterests = "Molecular Biology, Genetics, Ecology, Evolutionary Biology, Biotechnology, Marine Biology, Environmental Science, Cellular Biology";
-    } else if (department.toLowerCase().includes('education')) {
-      generatedInterests = "Curriculum Development, Educational Technology, Student Assessment, Inclusive Education, Learning Analytics, Pedagogical Innovation, Educational Leadership";
-    } else if (department.toLowerCase().includes('engineering')) {
-      generatedInterests = "Systems Engineering, Sustainable Design, Automation, Materials Science, Project Management, Engineering Education, Applied Research";
-    } else {
-      generatedInterests = `${degreeField}, Research Methodology, Interdisciplinary Studies, Applied ${degreeField}, Innovation in ${department}, Academic Collaboration, Student Mentorship`;
+    try {
+      const res = await cvAPI.generateResearchInterests({
+        title: formData.title,
+        department: formData.department,
+        qualifications,
+        keywords,
+      });
+      setAiSuggestion({ type: "research", content: res.research_interests || fallbackResearchInterests() });
+    } catch {
+      setAiSuggestion({ type: "research", content: fallbackResearchInterests() });
+    } finally {
+      setIsGeneratingResearch(false);
     }
-
-    setAiSuggestion({ type: 'research', content: generatedInterests });
-    setIsGeneratingResearch(false);
   };
 
   const acceptAISuggestion = () => {
@@ -352,32 +384,19 @@ export function ProfilePage() {
   const generateAIKeywords = async () => {
     setIsGeneratingKeywords(true);
     setAiGeneratedKeywords([]);
-
-    // Simulate AI generation with delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Generate keywords based on department
-    const department = formData.department;
-    const degreeField = qualifications[0]?.degree.split(' in ')[1] || department;
-    
-    let generatedKeywords: string[] = [];
-    
-    if (department.toLowerCase().includes('computer') || department.toLowerCase().includes('cs')) {
-      generatedKeywords = ["Artificial Intelligence", "Machine Learning", "Natural Language Processing", "Data Science", "Software Engineering", "Human-Computer Interaction", "Cybersecurity", "Cloud Computing", "Algorithm Design"];
-    } else if (department.toLowerCase().includes('business')) {
-      generatedKeywords = ["Strategic Management", "Organizational Behavior", "Marketing Analytics", "Entrepreneurship", "Financial Management", "Supply Chain Management", "Business Intelligence", "Innovation Management"];
-    } else if (department.toLowerCase().includes('biology')) {
-      generatedKeywords = ["Molecular Biology", "Genetics", "Ecology", "Evolutionary Biology", "Biotechnology", "Marine Biology", "Environmental Science", "Cellular Biology"];
-    } else if (department.toLowerCase().includes('education')) {
-      generatedKeywords = ["Curriculum Development", "Educational Technology", "Student Assessment", "Inclusive Education", "Learning Analytics", "Pedagogical Innovation", "Educational Leadership"];
-    } else if (department.toLowerCase().includes('engineering')) {
-      generatedKeywords = ["Systems Engineering", "Sustainable Design", "Automation", "Materials Science", "Project Management", "Engineering Education", "Applied Research"];
-    } else {
-      generatedKeywords = [degreeField, "Research Methodology", "Interdisciplinary Studies", "Applied " + degreeField, "Innovation in " + department, "Academic Collaboration", "Student Mentorship"];
+    try {
+      const res = await cvAPI.generateProfileKeywords({
+        department: formData.department,
+        bio: formData.bio,
+        research_interests: formData.researchInterests,
+        title: formData.title,
+      });
+      setAiGeneratedKeywords(res.keywords?.length ? res.keywords : fallbackKeywords());
+    } catch {
+      setAiGeneratedKeywords(fallbackKeywords());
+    } finally {
+      setIsGeneratingKeywords(false);
     }
-
-    setAiGeneratedKeywords(generatedKeywords);
-    setIsGeneratingKeywords(false);
   };
 
   const acceptAIKeywords = () => {

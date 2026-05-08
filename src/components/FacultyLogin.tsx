@@ -11,7 +11,7 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Separator } from "./ui/separator";
-import { Eye, EyeOff, Lock, Mail, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ArrowLeft, X } from "lucide-react";
 import { authAPI } from "../utils/api";
 
 interface FacultyLoginProps {
@@ -32,6 +32,12 @@ export function FacultyLogin({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotStatus, setForgotStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
+  const [forgotError, setForgotError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +64,20 @@ export function FacultyLogin({
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (error) setError("");
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) return;
+    setForgotStatus("loading");
+    setForgotError("");
+    try {
+      await authAPI.forgotPassword(forgotEmail.trim());
+      setForgotStatus("sent");
+    } catch {
+      setForgotStatus("error");
+      setForgotError("Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -156,6 +176,7 @@ export function FacultyLogin({
                   type="button"
                   variant="link"
                   className="px-0 text-sm text-muted-foreground hover:text-primary"
+                  onClick={() => { setShowForgotModal(true); setForgotStatus("idle"); setForgotEmail(""); setForgotError(""); }}
                 >
                   Forgot password?
                 </Button>
@@ -198,6 +219,74 @@ export function FacultyLogin({
           </p>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 relative">
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {forgotStatus === "sent" ? (
+              <div className="text-center py-4">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                  <Mail className="w-6 h-6 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Check your email</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  If <span className="font-medium">{forgotEmail}</span> is registered, you'll receive a reset link shortly.
+                </p>
+                <Button className="w-full" onClick={() => setShowForgotModal(false)}>
+                  Done
+                </Button>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Reset your password</h3>
+                <p className="text-sm text-gray-500 mb-5">
+                  Enter your account email and we'll send you a reset link.
+                </p>
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <Label htmlFor="forgot-email">Email address</Label>
+                    <div className="relative mt-1">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="you@salisbury.edu"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
+                  {forgotStatus === "error" && (
+                    <p className="text-sm text-red-600">{forgotError}</p>
+                  )}
+                  <Button type="submit" className="w-full" disabled={forgotStatus === "loading"}>
+                    {forgotStatus === "loading" ? "Sending…" : "Send reset link"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => setShowForgotModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

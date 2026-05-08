@@ -168,6 +168,56 @@ export const authAPI = {
   },
 
   isAuthenticated: () => !!getAccessToken(),
+
+  forgotPassword: async (email: string) =>
+    rawApiCall("/auth/forgot-password/", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: async (token: string, password: string) =>
+    rawApiCall("/auth/reset-password/", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
+
+  sendOtp: async (institutional_email: string) =>
+    apiCall("/auth/send-otp/", {
+      method: "POST",
+      body: JSON.stringify({ institutional_email }),
+    }),
+
+  verifyOtp: async (otp: string) =>
+    apiCall("/auth/verify-otp/", {
+      method: "POST",
+      body: JSON.stringify({ otp }),
+    }),
+};
+
+export const cvAPI = {
+  upload: async (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return apiCall("/faculty/upload-cv-papers/", { method: "POST", body });
+  },
+  confirm: async (data: {
+    profile?: { title?: string; bio?: string; department?: string };
+    papers?: any[];
+    patents?: any[];
+    projects?: any[];
+  }) => apiCall("/faculty/confirm-cv-items/", { method: "POST", body: JSON.stringify(data) }),
+  searchPapers: async (q: string) => apiCall(`/faculty/paper-search/?q=${encodeURIComponent(q)}`),
+  generateBio: async (data: {
+    name?: string; title?: string; department?: string;
+    qualifications?: any[]; research_interests?: string; keywords?: string[];
+  }) => apiCall("/faculty/generate-bio/", { method: "POST", body: JSON.stringify(data) }),
+  generateResearchInterests: async (data: {
+    title?: string; department?: string;
+    qualifications?: any[]; keywords?: string[]; papers?: string[];
+  }) => apiCall("/faculty/generate-research-interests/", { method: "POST", body: JSON.stringify(data) }),
+  generateProfileKeywords: async (data: {
+    department?: string; bio?: string; research_interests?: string; title?: string;
+  }) => apiCall("/faculty/generate-profile-keywords/", { method: "POST", body: JSON.stringify(data) }),
 };
 
 export const facultyAPI = {
@@ -190,8 +240,23 @@ export const papersAPI = {
   create: async (data: any) =>
     apiCall("/papers/", { method: "POST", body: JSON.stringify(data) }),
   update: async (id: number, data: any) =>
-    apiCall(`/papers/${id}/`, { method: "PUT", body: JSON.stringify(data) }),
+    apiCall(`/papers/${id}/`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: async (id: number) => apiCall(`/papers/${id}/`, { method: "DELETE" }),
+  bulkPublish: async (ids?: number[]) =>
+    apiCall("/faculty/papers/bulk-publish/", {
+      method: "POST",
+      body: JSON.stringify(ids ? { ids } : { all_draft: true }),
+    }),
+  extractAbstract: async (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return apiCall("/faculty/extract-abstract/", { method: "POST", body });
+  },
+  generateKeywords: async (title: string, abstract?: string) =>
+    apiCall("/faculty/generate-keywords/", {
+      method: "POST",
+      body: JSON.stringify({ title, abstract }),
+    }),
 };
 
 export const projectsAPI = {
@@ -256,6 +321,17 @@ export const contactAPI = {
       body: formData,
     });
   },
+};
+
+export const adminAPI = {
+  getPendingFaculty: async () => apiCall("/admin/faculty/?pending=true"),
+  approveFaculty: async (id: number) =>
+    apiCall(`/admin/faculty/${id}/approve/`, { method: "POST" }),
+  rejectFaculty: async (id: number, reason?: string) =>
+    apiCall(`/admin/faculty/${id}/reject/`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || "" }),
+    }),
 };
 
 export { apiCall };

@@ -6,15 +6,16 @@ import { PlatformAnalyticsPage } from "./admin/PlatformAnalyticsPage";
 import { StrategicInsightsPage } from "./admin/StrategicInsightsPage";
 import { SystemSettingsPage } from "./admin/SystemSettingsPage";
 import { ContactPageEditor } from "./admin/ContactPageEditor";
+import { PendingApprovalsPage } from "./admin/PendingApprovalsPage";
 import { Button } from "./ui/button";
-import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Phone } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Phone, ShieldCheck } from "lucide-react";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "departments" | "analytics" | "insights" | "contact" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "settings">("overview");
 
   const renderContent = () => {
     switch (activeTab) {
@@ -22,6 +23,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return <AdminOverviewPage />;
       case "faculty":
         return <FacultyManagementPage />;
+      case "pending":
+        return <PendingApprovalsPage />;
       case "departments":
         return <DepartmentManagementPage />;
       case "analytics":
@@ -77,6 +80,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           >
             <Users className="w-5 h-5" />
             Faculty Management
+          </button>
+          <button
+            onClick={() => setActiveTab("pending")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
+              activeTab === "pending"
+                ? "bg-[#8b0000] text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <ShieldCheck className="w-5 h-5" />
+            Pending Approvals
           </button>
           <button
             onClick={() => setActiveTab("departments")}
