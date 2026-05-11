@@ -439,7 +439,7 @@ export function PapersPage() {
       await papersAPI.bulkPublish(ids);
       setPapers(prev =>
         prev.map(p =>
-          (!ids || ids.includes(p.id)) && p.status === "draft"
+          (!ids || ids.includes(p.id)) && (p.status === "draft" || p.status === "in-review")
             ? { ...p, status: "published" }
             : p,
         ),
@@ -459,7 +459,7 @@ export function PapersPage() {
       return s;
     });
 
-  const draftPapers = papers.filter(p => p.status === "draft");
+  const unpublishedPapers = papers.filter(p => p.status === "draft" || p.status === "in-review");
   const filteredPapers =
     statusFilter === "all" ? papers : papers.filter(p => p.status === statusFilter);
 
@@ -484,7 +484,7 @@ export function PapersPage() {
           <p className="text-gray-600 mt-1">Manage your research publications</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {draftPapers.length > 0 && (
+          {unpublishedPapers.length > 0 && (
             <Button
               variant="outline"
               onClick={handleBulkPublish}
@@ -496,7 +496,7 @@ export function PapersPage() {
                 : <><Eye className="w-4 h-4 mr-1.5" />
                   {selectedIds.size > 0
                     ? `Publish ${selectedIds.size} selected`
-                    : `Publish all drafts (${draftPapers.length})`}
+                    : `Publish all (${unpublishedPapers.length})`}
                 </>}
             </Button>
           )}
@@ -539,11 +539,11 @@ export function PapersPage() {
           return (
             <Card
               key={paper.id}
-              className={`p-5 transition-all ${paper.status === "draft" ? "border-dashed border-gray-300" : ""} ${isSelected ? "ring-2 ring-[#8b0000]/30" : ""}`}
+              className={`p-5 transition-all ${paper.status === "draft" ? "border-dashed border-gray-300" : paper.status === "in-review" ? "border-dashed border-yellow-300" : ""} ${isSelected ? "ring-2 ring-[#8b0000]/30" : ""}`}
             >
               <div className="flex items-start gap-3">
-                {/* Checkbox for draft selection */}
-                {paper.status === "draft" && (
+                {/* Checkbox for draft/in-review selection */}
+                {(paper.status === "draft" || paper.status === "in-review") && (
                   <button
                     onClick={() => toggleSelect(paper.id)}
                     className="mt-0.5 text-gray-400 hover:text-[#8b0000] shrink-0 transition-colors"
@@ -608,7 +608,7 @@ export function PapersPage() {
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </Button>
-                  {paper.status === "draft" && (
+                  {(paper.status === "draft" || paper.status === "in-review") && (
                     <Button
                       size="sm"
                       variant="outline"

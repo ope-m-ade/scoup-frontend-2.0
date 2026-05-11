@@ -8,6 +8,7 @@ import { FacultyDashboard } from "./components/FacultyDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { Contact } from "./components/Contact";
 import { ResetPassword } from "./components/ResetPassword";
+import { BrowseCategories } from "./components/BrowseCategories";
 import {
   Documentation,
   ImplementationGapAnalysisDocumentation,
@@ -174,6 +175,13 @@ export default function App() {
         return <ImplementationGapAnalysisDocumentation onNavigate={handleNavigate} />;
       case "/reset-password":
         return <ResetPassword onNavigate={handleNavigate} />;
+      case "/browse":
+        return (
+          <BrowseCategories
+            onNavigate={handleNavigate}
+            currentPath={currentPath}
+          />
+        );
       case "/faculty-login":
         return (
           <FacultyLogin
@@ -196,8 +204,20 @@ export default function App() {
             onBack={() => handleNavigate("/")}
           />
         );
-      default:
+      default: {
+        // Handle /browse/<slug> detail routes
+        if (currentPath.startsWith("/browse/")) {
+          const slug = currentPath.slice("/browse/".length);
+          return (
+            <BrowseCategories
+              onNavigate={handleNavigate}
+              currentPath={currentPath}
+              initialSlug={slug}
+            />
+          );
+        }
         return <Home onNavigate={handleNavigate} />;
+      }
     }
   };
 

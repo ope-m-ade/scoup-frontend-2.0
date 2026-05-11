@@ -31,6 +31,8 @@ export function SettingsPage() {
   const [visibilityError, setVisibilityError] = useState("");
   const [isLoadingVisibility, setIsLoadingVisibility] = useState(true);
   const [isSavingVisibility, setIsSavingVisibility] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     const loadVisibility = async () => {
@@ -70,22 +72,32 @@ export function SettingsPage() {
     }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError("");
+
     if (newPassword !== confirmPassword) {
-      alert("Passwords do not match!");
+      setPasswordError("Passwords do not match.");
       return;
     }
     if (newPassword.length < 8) {
-      alert("Password must be at least 8 characters long!");
+      setPasswordError("Password must be at least 8 characters long.");
       return;
     }
-    // In a real app, this would update the password in the backend
-    setPasswordChanged(true);
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setTimeout(() => setPasswordChanged(false), 3000);
+
+    setIsChangingPassword(true);
+    try {
+      await authAPI.changePassword(currentPassword, newPassword);
+      setPasswordChanged(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordChanged(false), 4000);
+    } catch (err: any) {
+      setPasswordError(err?.message || "Failed to change password. Please try again.");
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleSaveNotifications = () => {
@@ -115,103 +127,48 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div>
-              <p className="font-medium text-gray-900">Profile Information</p>
-              <p className="text-sm text-gray-600">Name, title, department, and bio</p>
-            </div>
-            <button
-              onClick={() => setProfileVisible(!profileVisible)}
-              disabled={isLoadingVisibility || isSavingVisibility}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                profileVisible ? "bg-[#8b0000]" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  profileVisible ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
+        {isLoadingVisibility ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+            <div className="w-4 h-4 border-2 border-gray-300 border-t-[#8b0000] rounded-full animate-spin" />
+            Loading visibility settings…
           </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Master visibility toggle — the only one wired to the backend */}
+            <div className="flex items-center justify-between py-3 border-b border-gray-100">
+              <div>
+                <p className="font-medium text-gray-900">Public Profile</p>
+                <p className="text-sm text-gray-600">
+                  Show your profile (name, title, department, bio) in the public faculty directory
+                </p>
+              </div>
+              <button
+                onClick={() => setProfileVisible(!profileVisible)}
+                disabled={isSavingVisibility}
+                aria-label={profileVisible ? "Hide profile" : "Show profile"}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8b0000] ${
+                  profileVisible ? "bg-[#8b0000]" : "bg-gray-300"
+                } disabled:opacity-60`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    profileVisible ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
 
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div>
-              <p className="font-medium text-gray-900">Research Papers</p>
-              <p className="text-sm text-gray-600">Published papers and publications</p>
+            {/* Always-public items — papers are always publicly visible per policy */}
+            <div className="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
+              <p className="text-sm font-medium text-gray-700 mb-1">Always public</p>
+              <p className="text-sm text-gray-500">
+                Your <strong>research papers</strong> remain publicly visible regardless of your
+                profile visibility — this helps SCOUP surface your work to potential collaborators
+                and external stakeholders even when your profile is hidden.
+              </p>
             </div>
-            <button
-              onClick={() => setPapersVisible(!papersVisible)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                papersVisible ? "bg-[#8b0000]" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  papersVisible ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
           </div>
-
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div>
-              <p className="font-medium text-gray-900">Patents</p>
-              <p className="text-sm text-gray-600">Patent filings and intellectual property</p>
-            </div>
-            <button
-              onClick={() => setPatentsVisible(!patentsVisible)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                patentsVisible ? "bg-[#8b0000]" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  patentsVisible ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div>
-              <p className="font-medium text-gray-900">Projects</p>
-              <p className="text-sm text-gray-600">Current and past research projects</p>
-            </div>
-            <button
-              onClick={() => setProjectsVisible(!projectsVisible)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                projectsVisible ? "bg-[#8b0000]" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  projectsVisible ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between py-3">
-            <div>
-              <p className="font-medium text-gray-900">Contact Information</p>
-              <p className="text-sm text-gray-600">Email and phone number</p>
-            </div>
-            <button
-              onClick={() => setContactInfoVisible(!contactInfoVisible)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                contactInfoVisible ? "bg-[#8b0000]" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  contactInfoVisible ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
+        )}
 
         <div className="mt-6 flex items-center gap-3">
           <Button
@@ -256,7 +213,7 @@ export function SettingsPage() {
                 type={showCurrentPassword ? "text" : "password"}
                 id="current-password"
                 value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
+                onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(""); }}
                 required
                 className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b0000] focus:border-transparent"
               />
@@ -318,19 +275,23 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex items-center gap-3 pt-2 flex-wrap">
             <Button
               type="submit"
+              disabled={isChangingPassword}
               className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100]"
             >
               <Lock className="w-4 h-4 mr-2" />
-              Change Password
+              {isChangingPassword ? "Changing..." : "Change Password"}
             </Button>
             {passwordChanged && (
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle2 className="w-5 h-5" />
                 <span className="text-sm font-medium">Password updated successfully!</span>
               </div>
+            )}
+            {passwordError && (
+              <div className="text-sm text-red-600">{passwordError}</div>
             )}
           </div>
         </form>

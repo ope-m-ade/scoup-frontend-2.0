@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Users,
   Search,
@@ -12,6 +13,8 @@ import {
   FileText,
   Lightbulb,
   GraduationCap,
+  Send,
+  X,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -35,6 +38,7 @@ type ColleagueMatch = {
   matchScore: number;
   matchReason: string;
   sharedKeywords: string[];
+  collaborationScore: number;
   articleCount: number;
   totalCitations: number;
 };
@@ -298,6 +302,13 @@ export function NetworkPage() {
   const [patentOpportunities, setPatentOpportunities] = useState<PatentOpportunity[]>([]);
   const [projectOpportunities, setProjectOpportunities] = useState<ProjectOpportunity[]>([]);
 
+  // Inquiry dialog state
+  const [inquiryTarget, setInquiryTarget] = useState<ColleagueMatch | null>(null);
+  const [inquiryNote, setInquiryNote] = useState("");
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState<string | null>(null);
+  const inquiryTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   const applyNetworkDiscovery = (discovery: any) => {
     const serverColleagues = Array.isArray(discovery?.colleagues)
       ? discovery.colleagues
@@ -324,6 +335,7 @@ export function NetworkPage() {
         matchScore: Number(item?.matchScore ?? 0),
         matchReason: cleanText(item?.matchReason) || "Potential collaboration fit based on available SU profile data.",
         sharedKeywords: toKeywordList(item?.sharedKeywords),
+        collaborationScore: Number(item?.collaborationScore ?? 0),
         articleCount: Number(item?.articleCount ?? 0),
         totalCitations: Number(item?.totalCitations ?? 0),
       })),
@@ -469,6 +481,7 @@ export function NetworkPage() {
                 fallback: "Potential collaboration fit based on available SU profile data.",
               }),
               sharedKeywords: score.sharedKeywords,
+              collaborationScore: score.score,
               articleCount: faculty.metricsProfile?.articleCount ?? 0,
               totalCitations: faculty.metricsProfile?.totalCitations ?? 0,
             };
@@ -634,23 +647,29 @@ export function NetworkPage() {
   const filteredColleagues = useMemo(
     () =>
       colleagueMatches.filter((colleague) => {
-        const matchesSearch = includesSearch(
-          [
-            colleague.name,
-            colleague.title,
-            colleague.department,
-            colleague.school,
-            colleague.email,
-            colleague.bio,
-            ...colleague.researchInterests,
-          ],
-          searchQuery,
-        );
+        // When the backend has already run a semantic search, results are already ranked
+        // by relevance — skip the text filter so we don't hide semantically-matched results
+        // that don't literally contain the query phrase. Still apply the department filter.
+        const matchesSearch =
+          usesNetworkEndpoint && hasSearch
+            ? true
+            : includesSearch(
+                [
+                  colleague.name,
+                  colleague.title,
+                  colleague.department,
+                  colleague.school,
+                  colleague.email,
+                  colleague.bio,
+                  ...colleague.researchInterests,
+                ],
+                searchQuery,
+              );
 
         const matchesDepartment = departmentFilter === "all" || colleague.department === departmentFilter;
         return matchesSearch && matchesDepartment;
       }),
-    [colleagueMatches, searchQuery, departmentFilter],
+    [colleagueMatches, searchQuery, departmentFilter, usesNetworkEndpoint, hasSearch],
   );
 
   const filteredPapers = useMemo(
@@ -776,8 +795,96 @@ export function NetworkPage() {
         : "border-transparent text-gray-600 hover:text-gray-900"
     }`;
 
+  const handleInquirySubmit = async () => {
+    if (!inquiryTarget) return;
+    setInquirySubmitting(true);
+    try {
+      const res = await networkAPI.inquire({
+        target_faculty_name: inquiryTarget.name,
+        target_faculty_id: inquiryTarget.id,
+        target_department: inquiryTarget.department,
+        target_school: inquiryTarget.school,
+        shared_keywords: inquiryTarget.sharedKeywords,
+        note: inquiryNote.trim(),
+      });
+      setInquirySuccess(res?.message || "Inquiry submitted successfully.");
+    } catch {
+      setInquirySuccess("Failed to submit. Please try again.");
+    } finally {
+      setInquirySubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Inquiry Dialog */}
+      {inquiryTarget && createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ background: "#fff", borderRadius: "0.5rem", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", padding: "1.5rem", width: "100%", maxWidth: "30rem", border: "1px solid #e5e7eb" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+              <div>
+                <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827", margin: 0 }}>
+                  Request Collaboration
+                </h2>
+                <p style={{ fontSize: "0.875rem", color: "#6b7280", marginTop: "0.25rem" }}>
+                  This will appear in the admin portal. The SCOUP team will help connect you.
+                </p>
+              </div>
+              <button onClick={() => setInquiryTarget(null)} style={{ padding: "0.25rem", borderRadius: "0.375rem", border: "none", background: "transparent", cursor: "pointer", color: "#9ca3af" }}>
+                <X style={{ width: "1.25rem", height: "1.25rem" }} />
+              </button>
+            </div>
+
+            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "0.375rem", padding: "0.75rem", marginBottom: "1rem" }}>
+              <p style={{ fontSize: "0.875rem", fontWeight: 500, color: "#111827", margin: 0 }}>{inquiryTarget.name}</p>
+              {inquiryTarget.department && <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "0.25rem 0 0" }}>{inquiryTarget.department}</p>}
+              {inquiryTarget.sharedKeywords.length > 0 && (
+                <p style={{ fontSize: "0.75rem", color: "#8b0000", margin: "0.5rem 0 0" }}>
+                  Shared: {inquiryTarget.sharedKeywords.slice(0, 3).join(", ")}
+                </p>
+              )}
+            </div>
+
+            {inquirySuccess ? (
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "0.375rem", padding: "0.75rem", marginBottom: "1rem" }}>
+                <p style={{ fontSize: "0.875rem", color: "#166534", margin: 0 }}>{inquirySuccess}</p>
+              </div>
+            ) : (
+              <>
+                <label style={{ fontSize: "0.875rem", fontWeight: 500, color: "#374151", display: "block", marginBottom: "0.375rem" }}>
+                  What would you like to explore? <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span>
+                </label>
+                <textarea
+                  ref={inquiryTextareaRef}
+                  value={inquiryNote}
+                  onChange={(e) => setInquiryNote(e.target.value)}
+                  placeholder={`e.g. I'd like to discuss a potential grant proposal in ${inquiryTarget.sharedKeywords[0] || "our shared research area"}.`}
+                  rows={3}
+                  style={{ width: "100%", padding: "0.5rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", fontSize: "0.875rem", color: "#111827", resize: "vertical", boxSizing: "border-box", outline: "none", fontFamily: "inherit" }}
+                />
+              </>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
+              <Button variant="outline" onClick={() => setInquiryTarget(null)}>
+                {inquirySuccess ? "Close" : "Cancel"}
+              </Button>
+              {!inquirySuccess && (
+                <Button
+                  className="bg-[#8b0000] hover:bg-[#700000] text-white"
+                  onClick={handleInquirySubmit}
+                  disabled={inquirySubmitting}
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  {inquirySubmitting ? "Submitting…" : "Submit Inquiry"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Collaboration Network</h1>
         <p className="text-gray-600 mt-1">
@@ -926,9 +1033,31 @@ export function NetworkPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
-                      {colleague.matchReason}
-                    </div>
+                    {/* Collaboration suggestion — prominent when shared keywords exist */}
+                    {colleague.sharedKeywords.length > 0 && colleague.matchScore >= 60 ? (
+                      <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Sparkles className="w-4 h-4 text-green-700 shrink-0" />
+                          <span className="text-xs font-semibold text-green-800 uppercase tracking-wide">
+                            SCOUP Collaboration Suggestion
+                          </span>
+                          {colleague.collaborationScore > 0 && (
+                            <span className="ml-auto text-xs text-green-700 font-medium">
+                              {colleague.collaborationScore}% keyword match
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-green-900">
+                          You and {colleague.name.split(" ")[0]} share expertise in{" "}
+                          <strong>{colleague.sharedKeywords.slice(0, 3).join(", ")}</strong>.{" "}
+                          {colleague.matchReason}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
+                        {colleague.matchReason}
+                      </div>
+                    )}
 
                     {colleague.bio && (
                       <p className="mt-3 text-sm text-gray-600 line-clamp-2">{colleague.bio}</p>
@@ -946,21 +1075,39 @@ export function NetworkPage() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-3">
-                      {colleague.email ? (
+                      {colleague.email && (
                         <a
-                          href={`mailto:${colleague.email}?subject=Collaboration via SCOUP&body=Hello ${encodeURIComponent(colleague.name)},%0D%0A%0D%0AI found your profile on SCOUP and wanted to connect about a possible collaboration.%0D%0A%0D%0A`}
+                          href={`mailto:${colleague.email}?subject=${encodeURIComponent(
+                            colleague.sharedKeywords.length > 0
+                              ? `Collaboration Opportunity via SCOUP – ${colleague.sharedKeywords.slice(0, 2).join(" & ")}`
+                              : "Collaboration Opportunity via SCOUP"
+                          )}&body=${encodeURIComponent(
+                            `Hello ${colleague.name},\n\nI came across your profile on SCOUP and noticed we share expertise in ${
+                              colleague.sharedKeywords.length > 0
+                                ? colleague.sharedKeywords.slice(0, 3).join(", ")
+                                : "related research areas"
+                            }. I'd love to explore potential collaboration opportunities — whether that's a joint project, grant proposal, or co-teaching.\n\nLooking forward to connecting.\n\nBest regards`
+                          )}`}
                         >
                           <Button size="sm" className="bg-[#8b0000] hover:bg-[#700000]">
                             <Mail className="w-4 h-4 mr-2" />
-                            Contact
+                            {colleague.sharedKeywords.length > 0 ? "Suggest Collaboration" : "Contact"}
                           </Button>
                         </a>
-                      ) : (
-                        <Button size="sm" variant="outline" disabled>
-                          <Mail className="w-4 h-4 mr-2" />
-                          No email listed
-                        </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setInquiryTarget(colleague);
+                          setInquiryNote("");
+                          setInquirySuccess(null);
+                          setTimeout(() => inquiryTextareaRef.current?.focus(), 50);
+                        }}
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Request
+                      </Button>
                     </div>
                   </div>
                 </div>

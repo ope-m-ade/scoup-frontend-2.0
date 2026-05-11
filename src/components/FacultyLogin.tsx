@@ -11,7 +11,7 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Separator } from "./ui/separator";
-import { Eye, EyeOff, Lock, Mail, ArrowLeft, X } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ArrowLeft, X, Check } from "lucide-react";
 import { authAPI } from "../utils/api";
 
 interface FacultyLoginProps {
@@ -31,6 +31,7 @@ export function FacultyLogin({
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const [error, setError] = useState("");
 
   // Forgot password modal state
@@ -47,6 +48,8 @@ export function FacultyLogin({
     try {
       await authAPI.login(formData.emailOrUsername, formData.password);
 
+      setLoginSuccess(true);
+      await new Promise((resolve) => setTimeout(resolve, 2500));
       if (onLoginSuccess) {
         onLoginSuccess();
       }
@@ -182,8 +185,21 @@ export function FacultyLogin({
                 </Button>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
+              <Button
+                type="submit"
+                className={`w-full transition-colors ${loginSuccess ? "bg-green-600 hover:bg-green-600 text-white" : ""}`}
+                disabled={isLoading || loginSuccess}
+              >
+                {loginSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Welcome!
+                  </>
+                ) : isLoading ? (
+                  "Signing in..."
+                ) : (
+                  "Sign In"
+                )}
               </Button>
             </form>
 

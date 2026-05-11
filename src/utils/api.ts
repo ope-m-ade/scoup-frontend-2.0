@@ -181,6 +181,12 @@ export const authAPI = {
       body: JSON.stringify({ token, password }),
     }),
 
+  changePassword: async (currentPassword: string, newPassword: string) =>
+    apiCall("/auth/change-password/", {
+      method: "POST",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
+
   sendOtp: async (institutional_email: string) =>
     apiCall("/auth/send-otp/", {
       method: "POST",
@@ -289,6 +295,49 @@ export const networkAPI = {
     const query = params.toString();
     return apiCall(`/network/discovery/${query ? `?${query}` : ""}`);
   },
+  inquire: async (payload: {
+    target_faculty_name: string;
+    target_faculty_id?: string;
+    target_department?: string;
+    target_school?: string;
+    shared_keywords?: string[];
+    note?: string;
+  }) =>
+    apiCall("/network/inquire/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  // Used from public search — no auth token, requester provides name + email
+  publicInquire: async (payload: {
+    target_faculty_name: string;
+    target_faculty_id?: string;
+    target_department?: string;
+    requester_name: string;
+    requester_email: string;
+    requester_organization?: string;
+    note?: string;
+  }) => {
+    const base = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/+$/, "");
+    const res = await fetch(`${base}/network/inquire/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.detail || "Failed to submit inquiry.");
+    }
+    return res.json();
+  },
+};
+
+export const adminInquiriesAPI = {
+  list: async () => apiCall("/admin/inquiries/"),
+  update: async (id: number, data: { status?: string; admin_notes?: string }) =>
+    apiCall(`/admin/inquiries/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };
 
 export const contactAPI = {
@@ -332,6 +381,75 @@ export const adminAPI = {
       method: "POST",
       body: JSON.stringify({ reason: reason || "" }),
     }),
+};
+
+export interface MidLevelCategory {
+  name: string;
+  slug: string;
+  article_count: number;
+  faculty_count: number;
+}
+
+export interface TopLevelCategory {
+  name: string;
+  slug: string;
+  article_count: number;
+  faculty_count: number;
+  mid_level_categories: MidLevelCategory[];
+}
+
+export interface CategoryPaper {
+  id: number;
+  title: string;
+  doi: string;
+  journal: string | null;
+  date_published: string | null;
+  tc_count: number;
+  themes: string[];
+  mid_level_categories: string[];
+  download_url: string | null;
+  authors: { id: number; name: string }[];
+}
+
+export interface CategoryFaculty {
+  id: number;
+  name: string;
+  department: string | null;
+  title: string | null;
+  total_citations: number;
+  article_count: number;
+  photo: string | null;
+  themes: string[];
+  paper_ids: number[];
+  is_approved: boolean;
+  profile_visibility: boolean;
+  email: string;
+}
+
+export interface CategoryTheme {
+  name: string;
+  count: number;
+}
+
+export interface CategoryDetail {
+  category_name: string;
+  slug: string;
+  stats: {
+    article_count: number;
+    faculty_count: number;
+    department_count: number;
+    total_citations: number;
+    citation_average: number;
+  };
+  themes: CategoryTheme[];
+  papers: CategoryPaper[];
+  faculty: CategoryFaculty[];
+}
+
+export const categoriesAPI = {
+  list: async (): Promise<TopLevelCategory[]> => apiCall("/categories/"),
+  detail: async (slug: string): Promise<CategoryDetail> =>
+    apiCall(`/categories/${slug}/`),
 };
 
 export { apiCall };

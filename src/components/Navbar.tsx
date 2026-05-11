@@ -44,6 +44,16 @@ export function Navbar({ onNavigate, currentPath }: NavbarProps) {
               Home
             </button>
             <button
+              onClick={() => onNavigate("/browse")}
+              className={`transition-colors font-medium ${
+                currentPath.startsWith("/browse")
+                  ? "text-[#8b0000] font-semibold"
+                  : "text-gray-700 hover:text-[#8b0000]"
+              }`}
+            >
+              Browse
+            </button>
+            <button
               onClick={() => onNavigate("/about")}
               className={`transition-colors font-medium ${
                 currentPath === "/about"
@@ -74,6 +84,12 @@ export function Navbar({ onNavigate, currentPath }: NavbarProps) {
 
         {/* Mobile Navigation - Controlled by checkbox */}
         <div className="md:hidden hidden peer-checked:block mt-4 pt-4 border-t border-gray-200 space-y-3">
+          <button
+            onClick={() => onNavigate("/browse")}
+            className="block text-gray-700 hover:text-[#8b0000] transition-colors w-full text-left"
+          >
+            Browse
+          </button>
           <button
             onClick={() => onNavigate("/about")}
             className="block text-gray-700 hover:text-[#8b0000] transition-colors w-full text-left"

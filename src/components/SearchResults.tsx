@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Mail,
   Phone,
@@ -7,17 +8,25 @@ import {
   Lightbulb,
   FolderOpen,
   User,
+  Send,
+  X,
 } from "lucide-react";
-import type { SearchResult } from "../data/searchData";
+import type { SearchResult, FacultyMember } from "../data/searchData";
 import { getInitials } from "../utils/avatar";
+import { networkAPI } from "../utils/api";
+import { Button } from "./ui/button";
 
 interface SearchResultsProps {
   results: SearchResult[];
   query: string;
   activeFilters: string[];
+  onNavigate?: (path: string) => void;
 }
 
 const PAGE_SIZE = 10;
+
+const toCategorySlug = (name: string) =>
+  name.toLowerCase().replace(/\s+/g, "-").replace(/[,()]/g, "");
 
 const getPaperHref = (paper: { doi?: string; link?: string }) => {
   const link = String(paper.link || "").trim();
@@ -35,6 +44,7 @@ export function SearchResults({
   results,
   query,
   activeFilters,
+  onNavigate,
 }: SearchResultsProps) {
   // Filter results based on active filters
   const filteredResults = useMemo(() => {
@@ -46,6 +56,53 @@ export function SearchResults({
     return results.filter((result) => activeFilters.includes(result.type));
   }, [results, activeFilters]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Inquiry dialog state
+  const [inquiryTarget, setInquiryTarget] = useState<FacultyMember | null>(null);
+  const [inquiryNote, setInquiryNote] = useState("");
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState<string | null>(null);
+  const [inquiryError, setInquiryError] = useState<string | null>(null);
+  const [requesterName, setRequesterName] = useState("");
+  const [requesterEmail, setRequesterEmail] = useState("");
+  const [requesterOrg, setRequesterOrg] = useState("");
+  const inquiryTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const openInquiry = (faculty: FacultyMember) => {
+    setInquiryTarget(faculty);
+    setInquiryNote("");
+    setInquirySuccess(null);
+    setInquiryError(null);
+    setRequesterName("");
+    setRequesterEmail("");
+    setRequesterOrg("");
+  };
+
+  const handleInquirySubmit = async () => {
+    if (!inquiryTarget) return;
+    setInquiryError(null);
+    if (!requesterName.trim()) { setInquiryError("Your name is required."); return; }
+    if (!requesterEmail.trim() || !requesterEmail.includes("@")) { setInquiryError("A valid email address is required."); return; }
+    if (!inquiryNote.trim()) { setInquiryError("A message is required so the admin team can understand your request."); return; }
+    setInquirySubmitting(true);
+    try {
+      const res = await networkAPI.publicInquire({
+        target_faculty_name: inquiryTarget.name,
+        target_faculty_id: inquiryTarget.id,
+        target_department: inquiryTarget.department,
+        target_school: inquiryTarget.schoolAffiliations?.[0] ?? "",
+        requester_name: requesterName.trim(),
+        requester_email: requesterEmail.trim(),
+        requester_organization: requesterOrg.trim(),
+        note: inquiryNote.trim(),
+      });
+      setInquirySuccess(res?.message || "Request submitted successfully.");
+    } catch (err: any) {
+      setInquirySuccess(err?.message || "Failed to submit. Please try again.");
+    } finally {
+      setInquirySubmitting(false);
+    }
+  };
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -191,6 +248,26 @@ export function SearchResults({
                     </div>
                   )}
 
+                  {/* NSF Research Categories → links to Browse */}
+                  {result.data.nsfCategories && result.data.nsfCategories.length > 0 && onNavigate && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                        Research Categories
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {result.data.nsfCategories.slice(0, 5).map((cat, i) => (
+                          <button
+                            key={i}
+                            onClick={() => onNavigate(`/browse/${toCategorySlug(cat)}`)}
+                            className="px-2.5 py-1 text-xs rounded-full border border-[#8b0000]/20 bg-[#8b0000]/5 text-[#8b0000] hover:bg-[#8b0000] hover:text-white transition-colors"
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* AI Justification */}
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
                     <p className="text-sm text-blue-900 font-light">
@@ -223,18 +300,31 @@ export function SearchResults({
                             {result.data.phone}
                           </a>
                         )}
-                        {result.data.email && (
-                          <a
-                            href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research${result.data.researchInterests[0] ? ` in ${result.data.researchInterests[0]}` : ""}.%0D%0A%0D%0A`}
-                            className="ml-auto px-4 py-2 bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] rounded-full text-sm font-medium transition-colors flex items-center gap-2"
-                          >
-                            <Mail className="w-4 h-4" />
-                            Contact
-                          </a>
-                        )}
                       </div>
                     </div>
                   )}
+
+                  {/* Action buttons — always show Inquire via Admin; show Contact if email exists */}
+                  <div className="flex items-center gap-3 flex-wrap mt-1">
+                    {result.data.email && (
+                      <a
+                        href={`mailto:${result.data.email}?subject=Inquiry via SCOUP Platform&body=Hello ${result.data.name.split(" ").pop()},%0D%0A%0D%0AI found your profile on the SCOUP platform and would like to connect regarding your research${result.data.researchInterests[0] ? ` in ${result.data.researchInterests[0]}` : ""}.%0D%0A%0D%0A`}
+                      >
+                        <Button size="sm" className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100]">
+                          <Mail className="w-4 h-4" />
+                          Contact
+                        </Button>
+                      </a>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openInquiry(result.data as FacultyMember)}
+                    >
+                      <Send className="w-4 h-4" />
+                      Send Request
+                    </Button>
+                  </div>
 
                 </div>
               </div>
@@ -443,6 +533,98 @@ export function SearchResults({
             Load {Math.min(PAGE_SIZE, filteredResults.length - visibleCount)} more results
           </button>
         </div>
+      )}
+
+      {/* Inquiry dialog */}
+      {inquiryTarget && createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ background: "#fff", borderRadius: "0.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", padding: "1.5rem", width: "100%", maxWidth: "30rem", border: "1px solid #e5e7eb" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+              <div>
+                <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>Inquire via Admin</p>
+                <p style={{ fontSize: "0.9375rem", fontWeight: 500, color: "#111827", margin: "0.25rem 0 0" }}>{inquiryTarget.name}</p>
+                {inquiryTarget.department && <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "0.2rem 0 0" }}>{inquiryTarget.department}</p>}
+              </div>
+              <button onClick={() => setInquiryTarget(null)} style={{ padding: "0.25rem", borderRadius: "0.375rem", border: "none", background: "transparent", cursor: "pointer", color: "#9ca3af" }}>
+                <X style={{ width: "1.125rem", height: "1.125rem" }} />
+              </button>
+            </div>
+
+            {inquirySuccess ? (
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "0.5rem", padding: "1rem", marginBottom: "1rem" }}>
+                <p style={{ fontSize: "0.875rem", color: "#166534", margin: 0 }}>{inquirySuccess}</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#374151", marginBottom: "0.3rem" }}>Your Name *</label>
+                    <input
+                      type="text"
+                      value={requesterName}
+                      onChange={(e) => setRequesterName(e.target.value)}
+                      placeholder="Jane Smith"
+                      style={{ width: "100%", padding: "0.5rem 0.75rem", fontSize: "0.875rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#374151", marginBottom: "0.3rem" }}>Your Email *</label>
+                    <input
+                      type="email"
+                      value={requesterEmail}
+                      onChange={(e) => setRequesterEmail(e.target.value)}
+                      placeholder="jane@example.com"
+                      style={{ width: "100%", padding: "0.5rem 0.75rem", fontSize: "0.875rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#374151", marginBottom: "0.3rem" }}>Organization <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+                    <input
+                      type="text"
+                      value={requesterOrg}
+                      onChange={(e) => setRequesterOrg(e.target.value)}
+                      placeholder="University / Company / etc."
+                      style={{ width: "100%", padding: "0.5rem 0.75rem", fontSize: "0.875rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#374151", marginBottom: "0.3rem" }}>Message <span style={{ color: "#dc2626" }}>*</span></label>
+                  <textarea
+                    ref={inquiryTextareaRef}
+                    value={inquiryNote}
+                    onChange={(e) => setInquiryNote(e.target.value)}
+                    placeholder={`Briefly describe your interest — e.g. I'd like to discuss a collaboration around ${inquiryTarget.researchInterests[0] || "your research area"}.`}
+                    rows={3}
+                    style={{ width: "100%", padding: "0.75rem", fontSize: "0.875rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                </div>
+                {inquiryError && (
+                  <p style={{ fontSize: "0.8125rem", color: "#dc2626", marginBottom: "0.75rem" }}>{inquiryError}</p>
+                )}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+                  <Button variant="outline" onClick={() => setInquiryTarget(null)}>Cancel</Button>
+                  <Button
+                    disabled={inquirySubmitting}
+                    className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100]"
+                    onClick={handleInquirySubmit}
+                  >
+                    <Send className="w-4 h-4" />
+                    {inquirySubmitting ? "Sending…" : "Send Request"}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {inquirySuccess && (
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <Button variant="outline" onClick={() => setInquiryTarget(null)}>Close</Button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

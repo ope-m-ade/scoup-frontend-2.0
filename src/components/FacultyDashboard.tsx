@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { ProfilePage } from "./dashboard/ProfilePage";
 import { PapersPage } from "./dashboard/PapersPage";
 import { PatentsPage } from "./dashboard/PatentsPage";
@@ -23,6 +24,8 @@ import {
   Network,
   Trophy,
   Home,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface FacultyDashboardProps {
@@ -30,6 +33,8 @@ interface FacultyDashboardProps {
 }
 
 export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<
     | "overview"
     | "profile"
@@ -91,149 +96,75 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
     }
   };
 
+  // Helper: renders a nav button. Icons always show; label hides when collapsed.
+  const NavBtn = ({ tab, icon: Icon, label }: { tab: string; icon: any; label: string }) => (
+    <button
+      onClick={() => setActiveTab(tab as any)}
+      title={!sidebarOpen ? label : undefined}
+      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-colors ${
+        !sidebarOpen ? "justify-center" : ""
+      } ${
+        activeTab === tab
+          ? "bg-[#8b0000] text-white"
+          : "text-gray-700 hover:bg-gray-100"
+      }`}
+    >
+      <Icon className="w-5 h-5 shrink-0" />
+      {sidebarOpen && <span>{label}</span>}
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#ffd100] rounded flex items-center justify-center">
-              <span className="text-[#8b0000] font-bold">SU</span>
+      {/* ── Sidebar ──────────────────────────────────────────────────────────
+          Width transitions between 256px (open) and 68px (collapsed).
+          The toggle button sits in the header and flips sidebarOpen.       */}
+      <aside className={`${sidebarOpen ? "w-64" : "w-[68px]"} bg-white border-r border-gray-200 flex flex-col transition-all duration-200`}>
+
+        {/* Logo / Header */}
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          {sidebarOpen ? (
+            <div className="flex-1 text-center">
+              <h1 className="font-bold text-lg leading-tight">SCOUP</h1>
+              <p className="text-xs text-gray-500">Faculty Dashboard</p>
             </div>
-            <div>
-              <h1 className="font-bold text-xl">SCOUP</h1>
-              <p className="text-xs text-gray-600">Faculty Dashboard</p>
-            </div>
-          </div>
+          ) : (
+            <span className="font-bold text-sm text-[#8b0000] mx-auto">S</span>
+          )}
+          {/* Toggle button */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors shrink-0"
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "overview"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Home className="w-5 h-5" />
-              Overview
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab("profile")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "profile"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <User className="w-5 h-5" />
-            Profile
-          </button>
-          <button
-            onClick={() => setActiveTab("papers")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "papers"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <FileText className="w-5 h-5" />
-            Papers
-          </button>
-          <button
-            onClick={() => setActiveTab("patents")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "patents"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Lightbulb className="w-5 h-5" />
-            Patents
-          </button>
-          <button
-            onClick={() => setActiveTab("projects")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "projects"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <FolderOpen className="w-5 h-5" />
-            Projects
-          </button>
-          <button
-            onClick={() => setActiveTab("upload")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "upload"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Upload className="w-5 h-5" />
-            Upload PDF
-          </button>
-          <button
-            onClick={() => setActiveTab("analytics")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "analytics"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            Analytics
-          </button>
-          <button
-            onClick={() => setActiveTab("network")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "network"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Network className="w-5 h-5" />
-            Network
-          </button>
-          <button
-            onClick={() => setActiveTab("badges")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "badges"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Trophy className="w-5 h-5" />
-            Badges
-          </button>
+        {/* Navigation — each NavBtn shows icon + label when open, icon-only when closed */}
+        <nav className="flex-1 p-2 space-y-0.5">
+          <NavBtn tab="overview"  icon={Home}     label="Overview"    />
+          <NavBtn tab="profile"   icon={User}     label="Profile"     />
+          <NavBtn tab="papers"    icon={FileText}  label="Papers"      />
+          <NavBtn tab="patents"   icon={Lightbulb} label="Patents"     />
+          <NavBtn tab="projects"  icon={FolderOpen} label="Projects"  />
+          <NavBtn tab="upload"    icon={Upload}    label="Upload PDF"  />
+          <NavBtn tab="analytics" icon={BarChart3} label="Analytics"  />
+          <NavBtn tab="network"   icon={Network}   label="Network"    />
+          <NavBtn tab="badges"    icon={Trophy}    label="Badges"     />
         </nav>
 
         {/* Settings and Logout */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
+        <div className="p-2 border-t border-gray-200 space-y-0.5">
+          <NavBtn tab="settings" icon={Settings} label="Settings" />
           <button
-            onClick={() => setActiveTab("settings")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "settings"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
+            onClick={() => setShowLogoutDialog(true)}
+            title={!sidebarOpen ? "Logout" : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium border border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors ${!sidebarOpen ? "justify-center" : ""}`}
           >
-            <Settings className="w-5 h-5" />
-            Settings
+            <LogOut className="w-4 h-4 shrink-0" />
+            {sidebarOpen && <span>Logout</span>}
           </button>
-          <Button
-            onClick={onLogout}
-            variant="outline"
-            className="w-full border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
         </div>
       </aside>
 
@@ -244,6 +175,27 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
           {renderContent()}
         </div>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutDialog && createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ background: "#fff", borderRadius: "0.5rem", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", padding: "1.5rem", width: "100%", maxWidth: "28rem", border: "1px solid #e5e7eb" }}>
+            <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827", margin: 0 }}>Sign out of SCOUP?</h2>
+            <p style={{ fontSize: "0.875rem", color: "#6b7280", marginTop: "0.5rem" }}>
+              You'll need to sign in again to access your faculty dashboard and research profile.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
+              <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
+                Cancel
+              </Button>
+              <Button className="bg-[#8b0000] hover:bg-[#700000] text-white" onClick={onLogout}>
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

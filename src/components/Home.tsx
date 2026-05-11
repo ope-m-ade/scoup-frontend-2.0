@@ -1,13 +1,63 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "./ui/button";
-import { Search, TrendingUp, Users } from "lucide-react";
+import { Search, TrendingUp, Users, LayoutGrid } from "lucide-react";
+
+// NSF top-level categories for browse banner matching
+const NSF_CATEGORIES = [
+  { name: "Computer and information sciences", slug: "computer-and-information-sciences" },
+  { name: "Mathematics and statistics", slug: "mathematics-and-statistics" },
+  { name: "Biological and biomedical sciences", slug: "biological-and-biomedical-sciences" },
+  { name: "Psychology", slug: "psychology" },
+  { name: "Social sciences", slug: "social-sciences" },
+  { name: "Education", slug: "education" },
+  { name: "Engineering", slug: "engineering" },
+  { name: "Physical sciences", slug: "physical-sciences" },
+  { name: "Health sciences", slug: "health-sciences" },
+  { name: "Geosciences", slug: "geosciences" },
+  { name: "Business management and administration", slug: "business-management-and-administration" },
+  { name: "Communication and media studies", slug: "communication-and-media-studies" },
+  { name: "Humanities", slug: "humanities" },
+  { name: "Multidisciplinary interdisciplinary sciences", slug: "multidisciplinary-interdisciplinary-sciences" },
+  { name: "Visual and performing arts", slug: "visual-and-performing-arts" },
+  { name: "Other non-science and engineering", slug: "other-non-science-and-engineering" },
+];
+
+function matchCategory(query: string, results: SearchResult[] = []) {
+  const q = query.toLowerCase().trim();
+  if (!q || q.length < 3) return null;
+
+  // 1. Direct query match against category names
+  const direct = NSF_CATEGORIES.find((cat) => {
+    const name = cat.name.toLowerCase();
+    if (name.includes(q)) return true;
+    const words = q.split(/\s+/).filter((w) => w.length >= 3);
+    return words.length >= 1 && words.every((w) => name.includes(w));
+  });
+  if (direct) return direct;
+
+  // 2. Infer from top results' keywords — papers carry NSF category names in aiKeywords
+  const topPapers = results.filter((r) => r.type === "paper").slice(0, 5);
+  const keywordCounts: Record<string, number> = {};
+  for (const result of topPapers) {
+    const paper = result.data as { aiKeywords?: string[] };
+    for (const kw of paper.aiKeywords ?? []) {
+      const kwNorm = kw.toLowerCase().trim();
+      const matched = NSF_CATEGORIES.find((cat) => cat.name.toLowerCase() === kwNorm || cat.name.toLowerCase().includes(kwNorm));
+      if (matched) {
+        keywordCounts[matched.slug] = (keywordCounts[matched.slug] ?? 0) + 1;
+      }
+    }
+  }
+  const topSlug = Object.entries(keywordCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  return topSlug ? NSF_CATEGORIES.find((c) => c.slug === topSlug) ?? null : null;
+}
 import { Navbar } from "./Navbar";
 import { SearchResults } from "./SearchResults";
 import { Footer } from "./Footer";
-import { getSearchSuggestions, performSearch, setSearchDataset } from "../utils/searchEngine";
+import { getSearchSuggestions, performSearch, setSearchDataset, getDidYouMean } from "../utils/searchEngine";
 import type { SearchResult } from "../data/searchData";
 import salisburyLogo from "../assets/images/Salisbury_University_logo.png";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { fetchPublicDataset, type PublicDataset } from "../utils/publicData";
 import { getDepartmentAffiliations } from "../utils/datasetNormalization";
 
@@ -33,7 +83,10 @@ export function Home({ onNavigate }: HomeProps) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const [highlightedSuggestion, setHighlightedSuggestion] = useState(-1);
+  const [didYouMean, setDidYouMean] = useState<string | null>(null);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
+
+  const matchedCategory = useMemo(() => matchCategory(searchQuery, searchResults), [searchQuery, searchResults]);
 
   const openSuggestions = (value: string) => {
     const nextSuggestions = getSearchSuggestions(value, 8);
@@ -53,11 +106,15 @@ export function Home({ onNavigate }: HomeProps) {
     setSearchQuery(normalizedQuery);
     setIsSuggestionsOpen(false);
     setHighlightedSuggestion(-1);
+    setDidYouMean(null);
     setIsSearching(true);
+    setHasSearched(true);
     try {
       const results = await performSearch(normalizedQuery);
       setSearchResults(results);
-      setHasSearched(true);
+      if (results.length < 3 || results.every((r) => r.confidence < 70)) {
+        setDidYouMean(getDidYouMean(normalizedQuery));
+      }
     } catch (error) {
       console.error("Search error:", error);
       setSearchResults([]);
@@ -348,7 +405,39 @@ export function Home({ onNavigate }: HomeProps) {
               <p className="text-sm font-light">Searching...</p>
             </div>
           ) : (
-            <SearchResults results={searchResults} query={searchQuery} activeFilters={activeFilters} />
+            <>
+              {didYouMean && (
+                <div className="max-w-5xl mx-auto px-6 mb-2">
+                  <p className="text-sm text-gray-500">
+                    Did you mean{" "}
+                    <button
+                      onClick={() => executeSearch(didYouMean)}
+                      className="text-[#8b0000] font-medium hover:underline"
+                    >
+                      {didYouMean}
+                    </button>
+                    ?
+                  </p>
+                </div>
+              )}
+              {matchedCategory && (
+                <div className="max-w-5xl mx-auto px-6 mb-6 mt-2">
+                  <button
+                    onClick={() => onNavigate(`/browse/${matchedCategory.slug}`)}
+                    className="w-full flex items-center gap-4 px-6 py-5 rounded-xl border border-[#8b0000]/20 bg-[#8b0000]/5 hover:bg-[#8b0000]/10 transition-colors text-left group"
+                  >
+                    <LayoutGrid className="w-5 h-5 text-[#8b0000] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-gray-500">Browse all research in </span>
+                      <span className="text-sm font-semibold text-[#8b0000]">{matchedCategory.name}</span>
+                      <span className="text-sm text-gray-500"> — explore faculty, themes & papers by category</span>
+                    </div>
+                    <span className="text-xs text-[#8b0000] font-medium group-hover:underline shrink-0">View category →</span>
+                  </button>
+                </div>
+              )}
+              <SearchResults results={searchResults} query={searchQuery} activeFilters={activeFilters} onNavigate={onNavigate} />
+            </>
           )}
         </div>
       ) : (

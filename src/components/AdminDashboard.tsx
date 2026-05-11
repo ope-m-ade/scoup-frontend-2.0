@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { AdminOverviewPage } from "./admin/AdminOverviewPage";
 import { FacultyManagementPage } from "./admin/FacultyManagementPage";
 import { DepartmentManagementPage } from "./admin/DepartmentManagementPage";
@@ -7,15 +8,18 @@ import { StrategicInsightsPage } from "./admin/StrategicInsightsPage";
 import { SystemSettingsPage } from "./admin/SystemSettingsPage";
 import { ContactPageEditor } from "./admin/ContactPageEditor";
 import { PendingApprovalsPage } from "./admin/PendingApprovalsPage";
+import { InquiriesPage } from "./admin/InquiriesPage";
 import { Button } from "./ui/button";
-import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Phone, ShieldCheck } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Phone, ShieldCheck, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "settings">("overview");
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "inquiries" | "settings">("overview");
 
   const renderContent = () => {
     switch (activeTab) {
@@ -33,6 +37,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return <StrategicInsightsPage />;
       case "contact":
         return <ContactPageEditor />;
+      case "inquiries":
+        return <InquiriesPage />;
       case "settings":
         return <SystemSettingsPage />;
       default:
@@ -40,125 +46,66 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  const NavBtn = ({ tab, icon: Icon, label }: { tab: string; icon: any; label: string }) => (
+    <button
+      onClick={() => setActiveTab(tab as any)}
+      title={!sidebarOpen ? label : undefined}
+      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-colors ${
+        !sidebarOpen ? "justify-center" : ""
+      } ${activeTab === tab ? "bg-[#8b0000] text-white" : "text-gray-700 hover:bg-gray-100"}`}
+    >
+      <Icon className="w-5 h-5 shrink-0" />
+      {sidebarOpen && <span className="flex-1 text-left">{label}</span>}
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <aside className={`${sidebarOpen ? "w-64" : "w-[68px]"} bg-white border-r border-gray-200 flex flex-col transition-all duration-200`}>
+
         {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#ffd100] to-[#e6bc00] rounded flex items-center justify-center">
-              <span className="text-[#8b0000] font-bold">SU</span>
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          {sidebarOpen ? (
+            <div className="flex-1 text-center">
+              <h1 className="font-bold text-lg leading-tight">SCOUP</h1>
+              <p className="text-xs text-gray-500">Admin Dashboard</p>
             </div>
-            <div>
-              <h1 className="font-bold text-xl">SCOUP</h1>
-              <p className="text-xs text-gray-600">Admin Dashboard</p>
-            </div>
-          </div>
+          ) : (
+            <span className="font-bold text-sm text-[#8b0000] mx-auto">S</span>
+          )}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors shrink-0"
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "overview"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab("faculty")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "faculty"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            Faculty Management
-          </button>
-          <button
-            onClick={() => setActiveTab("pending")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "pending"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <ShieldCheck className="w-5 h-5" />
-            Pending Approvals
-          </button>
-          <button
-            onClick={() => setActiveTab("departments")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "departments"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Building2 className="w-5 h-5" />
-            Departments
-          </button>
-          <button
-            onClick={() => setActiveTab("analytics")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "analytics"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            Platform Analytics
-          </button>
-          <button
-            onClick={() => setActiveTab("insights")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "insights"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Lightbulb className="w-5 h-5" />
-            Strategic Insights
-          </button>
-          <button
-            onClick={() => setActiveTab("contact")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "contact"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Phone className="w-5 h-5" />
-            Contact Page
-          </button>
+        <nav className="flex-1 p-2 space-y-0.5">
+          <NavBtn tab="overview"    icon={LayoutDashboard} label="Overview"           />
+          <NavBtn tab="faculty"     icon={Users}           label="Faculty Management" />
+          <NavBtn tab="pending"     icon={ShieldCheck}     label="Pending Approvals"  />
+          <NavBtn tab="inquiries"   icon={MessageSquare}   label="Inquiries" />
+          <NavBtn tab="departments" icon={Building2}       label="Departments"        />
+          <NavBtn tab="analytics"   icon={BarChart3}       label="Platform Analytics" />
+          <NavBtn tab="insights"    icon={Lightbulb}       label="Strategic Insights" />
+          <NavBtn tab="contact"     icon={Phone}           label="Contact Page"       />
         </nav>
 
         {/* Settings and Logout */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
+        <div className="p-2 border-t border-gray-200 space-y-0.5">
+          <NavBtn tab="settings" icon={Settings} label="System Settings" />
           <button
-            onClick={() => setActiveTab("settings")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === "settings"
-                ? "bg-[#8b0000] text-white"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
+            onClick={() => setShowLogoutDialog(true)}
+            title={!sidebarOpen ? "Logout" : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium border border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors ${!sidebarOpen ? "justify-center" : ""}`}
           >
-            <Settings className="w-5 h-5" />
-            System Settings
+            <LogOut className="w-4 h-4 shrink-0" />
+            {sidebarOpen && <span>Logout</span>}
           </button>
-          <Button
-            onClick={onLogout}
-            variant="outline"
-            className="w-full border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
         </div>
       </aside>
 
@@ -168,6 +115,27 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {renderContent()}
         </div>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutDialog && createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ background: "#fff", borderRadius: "0.5rem", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", padding: "1.5rem", width: "100%", maxWidth: "28rem", border: "1px solid #e5e7eb" }}>
+            <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827", margin: 0 }}>Sign out of SCOUP?</h2>
+            <p style={{ fontSize: "0.875rem", color: "#6b7280", marginTop: "0.5rem" }}>
+              You'll need to sign in again to access your admin dashboard.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
+              <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
+                Cancel
+              </Button>
+              <Button className="bg-[#8b0000] hover:bg-[#700000] text-white" onClick={onLogout}>
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

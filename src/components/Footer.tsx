@@ -72,7 +72,7 @@ export function Footer({ onNavigate, githubUrl }: FooterProps) {
                   onClick={() => onNavigate("/admin-login")}
                   className="text-gray-600 hover:text-[#8b0000] transition-colors text-sm"
                 >
-                  Admin Login
+                  Admin
                 </button>
               </li>
             </ul>

@@ -23,6 +23,7 @@ export interface FacultyMember {
   };
   themes?: string[];
   journals?: string[];
+  nsfCategories?: string[];
   sourceProfile?: Record<string, unknown>;
 }
 
