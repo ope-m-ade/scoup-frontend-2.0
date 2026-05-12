@@ -373,13 +373,45 @@ export const contactAPI = {
 };
 
 export const adminAPI = {
+  me: async () => apiCall("/admin/me/"),
+  updateMe: async (data: { first_name?: string; last_name?: string; email?: string }) =>
+    apiCall("/admin/me/", { method: "PATCH", body: JSON.stringify(data) }),
+
+  // Faculty management
+  getAllFaculty: async (params: { search?: string; status?: string; department?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.search) q.set("search", params.search);
+    if (params.status && params.status !== "all") q.set("status", params.status);
+    if (params.department) q.set("department", params.department);
+    return apiCall(`/admin/faculty/${q.toString() ? `?${q}` : ""}`);
+  },
   getPendingFaculty: async () => apiCall("/admin/faculty/?pending=true"),
+  updateFaculty: async (id: number, data: Record<string, any>) =>
+    apiCall(`/admin/faculty/${id}/`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteFaculty: async (id: number) =>
+    apiCall(`/admin/faculty/${id}/`, { method: "DELETE" }),
   approveFaculty: async (id: number) =>
     apiCall(`/admin/faculty/${id}/approve/`, { method: "POST" }),
   rejectFaculty: async (id: number, reason?: string) =>
     apiCall(`/admin/faculty/${id}/reject/`, {
       method: "POST",
       body: JSON.stringify({ reason: reason || "" }),
+    }),
+  bulkFacultyAction: async (action: "approve" | "reject", ids: number[], reason?: string) =>
+    apiCall("/admin/faculty/bulk-action/", {
+      method: "POST",
+      body: JSON.stringify({ action, ids, reason: reason || "" }),
+    }),
+
+  // Platform stats & audit log
+  getStats: async () => apiCall("/admin/stats/"),
+  getAuditLog: async () => apiCall("/admin/audit-log/"),
+
+  // Admin password change
+  changePassword: async (currentPassword: string, newPassword: string) =>
+    apiCall("/auth/change-password/", {
+      method: "POST",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
     }),
 };
 

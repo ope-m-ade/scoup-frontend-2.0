@@ -1,54 +1,67 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AdminOverviewPage } from "./admin/AdminOverviewPage";
+import { AdminAnalyticsPage } from "./admin/AdminAnalyticsPage";
 import { FacultyManagementPage } from "./admin/FacultyManagementPage";
 import { DepartmentManagementPage } from "./admin/DepartmentManagementPage";
-import { PlatformAnalyticsPage } from "./admin/PlatformAnalyticsPage";
 import { StrategicInsightsPage } from "./admin/StrategicInsightsPage";
-import { SystemSettingsPage } from "./admin/SystemSettingsPage";
+import { AdminProfilePage } from "./admin/AdminProfilePage";
 import { ContactPageEditor } from "./admin/ContactPageEditor";
 import { PendingApprovalsPage } from "./admin/PendingApprovalsPage";
 import { InquiriesPage } from "./admin/InquiriesPage";
 import { Button } from "./ui/button";
-import { LogOut, LayoutDashboard, Users, Building2, BarChart3, Settings, Lightbulb, Phone, ShieldCheck, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import { adminAPI } from "../utils/api";
+import {
+  LogOut, LayoutDashboard, Users,
+  UserCircle, Phone, ShieldCheck, ChevronLeft,
+  ChevronRight, MessageSquare,
+} from "lucide-react";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
+type Tab = "overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "inquiries" | "profile";
+
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "inquiries" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [adminName, setAdminName] = useState("");
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    adminAPI.me().then((data: any) => {
+      setAdminName(data.display_name || data.username || "Admin");
+    }).catch(() => {});
+
+    // Fetch pending count for sidebar badge
+    adminAPI.getPendingFaculty().then((data: any) => {
+      const list = Array.isArray(data) ? data : data?.results || [];
+      setPendingCount(list.length);
+    }).catch(() => {});
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
-      case "overview":
-        return <AdminOverviewPage />;
-      case "faculty":
-        return <FacultyManagementPage />;
-      case "pending":
-        return <PendingApprovalsPage />;
-      case "departments":
-        return <DepartmentManagementPage />;
-      case "analytics":
-        return <PlatformAnalyticsPage />;
-      case "insights":
-        return <StrategicInsightsPage />;
-      case "contact":
-        return <ContactPageEditor />;
-      case "inquiries":
-        return <InquiriesPage />;
-      case "settings":
-        return <SystemSettingsPage />;
-      default:
-        return <AdminOverviewPage />;
+      case "overview":    return <AdminOverviewPage onNavigate={setActiveTab} />;
+      case "faculty":     return <FacultyManagementPage />;
+      case "pending":     return <PendingApprovalsPage />;
+      case "departments": return <DepartmentManagementPage />;
+      case "analytics":   return <AdminAnalyticsPage />;
+      case "insights":    return <StrategicInsightsPage />;
+      case "contact":     return <ContactPageEditor />;
+      case "inquiries":   return <InquiriesPage />;
+      case "profile":     return <AdminProfilePage />;
+      default:            return <AdminOverviewPage onNavigate={setActiveTab} />;
     }
   };
 
-  const NavBtn = ({ tab, icon: Icon, label }: { tab: string; icon: any; label: string }) => (
+  const NavBtn = ({
+    tab, icon: Icon, label, badge,
+  }: { tab: Tab; icon: any; label: string; badge?: number }) => (
     <button
-      onClick={() => setActiveTab(tab as any)}
+      onClick={() => setActiveTab(tab)}
       title={!sidebarOpen ? label : undefined}
       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-colors ${
         !sidebarOpen ? "justify-center" : ""
@@ -56,6 +69,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     >
       <Icon className="w-5 h-5 shrink-0" />
       {sidebarOpen && <span className="flex-1 text-left">{label}</span>}
+      {sidebarOpen && badge != null && badge > 0 && (
+        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
+          activeTab === tab ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
+        }`}>
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </button>
   );
 
@@ -64,12 +84,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       {/* Sidebar */}
       <aside className={`${sidebarOpen ? "w-64" : "w-[68px]"} bg-white border-r border-gray-200 flex flex-col transition-all duration-200`}>
 
-        {/* Logo/Header */}
+        {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           {sidebarOpen ? (
-            <div className="flex-1 text-center">
-              <h1 className="font-bold text-lg leading-tight">SCOUP</h1>
-              <p className="text-xs text-gray-500">Admin Dashboard</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-sm leading-tight truncate">{adminName}</h1>
+              <p className="text-xs text-gray-500">Admin</p>
             </div>
           ) : (
             <span className="font-bold text-sm text-[#8b0000] mx-auto">S</span>
@@ -87,17 +107,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         <nav className="flex-1 p-2 space-y-0.5">
           <NavBtn tab="overview"    icon={LayoutDashboard} label="Overview"           />
           <NavBtn tab="faculty"     icon={Users}           label="Faculty Management" />
-          <NavBtn tab="pending"     icon={ShieldCheck}     label="Pending Approvals"  />
-          <NavBtn tab="inquiries"   icon={MessageSquare}   label="Inquiries" />
-          <NavBtn tab="departments" icon={Building2}       label="Departments"        />
-          <NavBtn tab="analytics"   icon={BarChart3}       label="Platform Analytics" />
-          <NavBtn tab="insights"    icon={Lightbulb}       label="Strategic Insights" />
+          <NavBtn tab="pending"     icon={ShieldCheck}     label="Pending Approvals"  badge={pendingCount} />
+          <NavBtn tab="inquiries"   icon={MessageSquare}   label="Inquiries"          />
           <NavBtn tab="contact"     icon={Phone}           label="Contact Page"       />
         </nav>
 
-        {/* Settings and Logout */}
+        {/* Profile + Logout */}
         <div className="p-2 border-t border-gray-200 space-y-0.5">
-          <NavBtn tab="settings" icon={Settings} label="System Settings" />
+          <NavBtn tab="profile" icon={UserCircle} label="My Profile" />
+          <div className="pt-1" />
           <button
             onClick={() => setShowLogoutDialog(true)}
             title={!sidebarOpen ? "Logout" : undefined}
@@ -116,7 +134,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </div>
       </main>
 
-      {/* Logout Confirmation Dialog */}
+      {/* Logout Dialog */}
       {showLogoutDialog && createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
           <div style={{ background: "#fff", borderRadius: "0.5rem", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", padding: "1.5rem", width: "100%", maxWidth: "28rem", border: "1px solid #e5e7eb" }}>
@@ -125,12 +143,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               You'll need to sign in again to access your admin dashboard.
             </p>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
-              <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
-                Cancel
-              </Button>
-              <Button className="bg-[#8b0000] hover:bg-[#700000] text-white" onClick={onLogout}>
-                Sign Out
-              </Button>
+              <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>Cancel</Button>
+              <Button className="bg-[#8b0000] hover:bg-[#700000] text-white" onClick={onLogout}>Sign Out</Button>
             </div>
           </div>
         </div>,

@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Download,
   Globe,
   Mail,
   MessageSquare,
@@ -31,6 +32,7 @@ type Inquiry = {
   shared_keywords: string[];
   note: string;
   admin_notes: string;
+  reviewed_by: string;
 };
 
 type InquiryStatus = Inquiry["status"];
@@ -111,7 +113,7 @@ export function InquiriesPage() {
       const updated = await adminInquiriesAPI.update(id, { status: newStatus });
       setInquiries((prev) =>
         prev.map((inq) =>
-          inq.id === id ? { ...inq, status: updated.status ?? newStatus } : inq,
+          inq.id === id ? { ...inq, status: updated.status ?? newStatus, reviewed_by: updated.reviewed_by ?? inq.reviewed_by } : inq,
         ),
       );
     } catch {
@@ -163,17 +165,59 @@ export function InquiriesPage() {
     );
   }
 
+  const exportCsv = () => {
+    const headers = [
+      "ID", "Date", "Status", "Source", "From Name", "From Email",
+      "From Department", "Target Faculty", "Target Department",
+      "Target School", "Shared Keywords", "Note", "Admin Notes", "Reviewed By",
+    ];
+    const rows = inquiries.map(inq => [
+      inq.id,
+      formatDate(inq.created_at),
+      inq.status,
+      inq.source_type,
+      inq.from_faculty_name,
+      inq.from_faculty_email,
+      inq.from_faculty_department,
+      inq.target_faculty_name,
+      inq.target_department,
+      inq.target_school,
+      (inq.shared_keywords ?? []).join("; "),
+      inq.note,
+      inq.admin_notes,
+      inq.reviewed_by,
+    ].map(v => `"${String(v ?? "").replace(/"/g, '""')}"`));
+
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `scoup-inquiries-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-gray-900">
-          Inquiries
-        </h1>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          Review faculty-to-faculty and external collaboration requests, track
-          follow-up, and keep internal notes in one place.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-gray-900">Inquiries</h1>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Review faculty-to-faculty and external collaboration requests, track
+            follow-up, and keep internal notes in one place.
+          </p>
+        </div>
+        {inquiries.length > 0 && (
+          <button
+            onClick={exportCsv}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -390,10 +434,15 @@ export function InquiriesPage() {
 
                     {/* Admin notes */}
                     <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-                      <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+                      <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
                         <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
                           Admin Notes
                         </p>
+                        {inq.reviewed_by && (
+                          <p className="text-xs text-gray-400">
+                            Reviewed by <span className="font-medium text-gray-600">{inq.reviewed_by}</span>
+                          </p>
+                        )}
                       </div>
                       <textarea
                         rows={3}
