@@ -369,6 +369,8 @@ export function PapersPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkPublishing, setBulkPublishing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<PaperStatus | "all">("all");
+  const [enrichingIds, setEnrichingIds] = useState<Set<number>>(new Set());
+  const enrichedRef = useRef(false);
 
   const normalise = (p: any, i = 0): Paper => ({
     id: p?.id ?? Date.now() + i,
@@ -397,6 +399,54 @@ export function PapersPage() {
       .catch(err => setError(err?.message || "Unable to load papers."))
       .finally(() => setLoading(false));
   }, []);
+
+  // Lazy CrossRef abstract enrichment — runs once after initial load.
+  // For each paper that has a DOI but no abstract, quietly fetch from CrossRef
+  // and save it back. Papers update in place as abstracts arrive.
+  useEffect(() => {
+    if (loading || enrichedRef.current || papers.length === 0) return;
+
+    const toEnrich = papers.filter(
+      p => !p.abstract?.trim() && p.doi && !isFakeDoi(p.doi),
+    );
+    if (toEnrich.length === 0) return;
+
+    enrichedRef.current = true; // prevent re-runs if papers state changes
+
+    let cancelled = false;
+    const stripTags = (s: string) => s.replace(/<[^>]+>/g, "").trim();
+
+    const run = async () => {
+      setEnrichingIds(new Set(toEnrich.map(p => p.id)));
+
+      for (const paper of toEnrich) {
+        if (cancelled) break;
+        try {
+          const res = await fetch(
+            `https://api.crossref.org/works/${encodeURIComponent(paper.doi)}`,
+            { headers: { "User-Agent": "SCOUP/1.0 (mailto:scoupteam@gmail.com)" } },
+          );
+          if (!res.ok) continue;
+          const data = await res.json();
+          const abstract = stripTags(data?.message?.abstract || "");
+          if (abstract && !cancelled) {
+            // Persist to backend, then update UI
+            await papersAPI.update(paper.id, { abstract }).catch(() => {});
+            setPapers(prev =>
+              prev.map(p => p.id === paper.id ? { ...p, abstract } : p),
+            );
+          }
+        } catch {
+          // network hiccup — skip this paper silently
+        }
+        setEnrichingIds(prev => { const s = new Set(prev); s.delete(paper.id); return s; });
+        if (!cancelled) await new Promise(r => setTimeout(r, 300)); // gentle pacing
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [loading]);
 
   const handleSave = async (form: Omit<Paper, "id">, id?: number) => {
     const payload = {
@@ -588,6 +638,8 @@ export function PapersPage() {
 
                   {paper.abstract
                     ? <p className="text-sm text-gray-600 line-clamp-2 mb-2">{paper.abstract}</p>
+                    : enrichingIds.has(paper.id)
+                    ? <p className="text-xs text-gray-400 italic mb-2 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Fetching abstract…</p>
                     : <p className="text-xs text-amber-600 italic mb-2">No abstract — edit to add one or upload the paper PDF</p>}
 
                   {paper.keywords.length > 0 && (

@@ -95,6 +95,7 @@ async function apiCall(
       } catch {
         isRefreshing = false;
         clearTokens();
+        window.dispatchEvent(new CustomEvent("sessionExpired"));
         throw new Error("Session expired. Please log in again.");
       }
     }
@@ -312,6 +313,10 @@ export const networkAPI = {
     target_faculty_name: string;
     target_faculty_id?: string;
     target_department?: string;
+    target_school?: string;
+    target_project_id?: string | number;
+    target_project_title?: string;
+    requester_role?: string;
     requester_name: string;
     requester_email: string;
     requester_organization?: string;
@@ -329,6 +334,15 @@ export const networkAPI = {
     }
     return res.json();
   },
+};
+
+export const facultyInquiriesAPI = {
+  list: async () => apiCall("/faculty/inquiries/"),
+  update: async (id: number, data: { status?: "reviewed" | "closed" }) =>
+    apiCall(`/faculty/inquiries/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };
 
 export const adminInquiriesAPI = {

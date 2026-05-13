@@ -143,6 +143,9 @@ export function normalizeProjectRecord(recordLike: unknown): Project {
     startDate: str(r.startDate),
     endDate: str(r.endDate) || undefined,
     aiKeywords: arr(r.aiKeywords),
+    isOpenToCollaboration: Boolean(r.isOpenToCollaboration),
+    collaborationInvitation: str(r.collaborationInvitation),
+    allowStudentInterest: r.allowStudentInterest !== false,
     departmentAffiliations: arr(r.departmentAffiliations),
     schoolAffiliations: arr(r.schoolAffiliations),
   };

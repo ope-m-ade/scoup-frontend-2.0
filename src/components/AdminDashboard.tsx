@@ -14,21 +14,29 @@ import { adminAPI } from "../utils/api";
 import {
   LogOut, LayoutDashboard, Users,
   UserCircle, Phone, ShieldCheck, ChevronLeft,
-  ChevronRight, MessageSquare,
+  ChevronRight, MessageSquare, ExternalLink,
 } from "lucide-react";
 
 interface AdminDashboardProps {
   onLogout: () => void;
+  onNavigate: (path: string) => void;
 }
 
 type Tab = "overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "inquiries" | "profile";
 
-export function AdminDashboard({ onLogout }: AdminDashboardProps) {
+export function AdminDashboard({ onLogout, onNavigate }: AdminDashboardProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [adminName, setAdminName] = useState("");
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Auto-logout when any API call detects an expired session
+  useEffect(() => {
+    const handler = () => onLogout();
+    window.addEventListener("sessionExpired", handler);
+    return () => window.removeEventListener("sessionExpired", handler);
+  }, [onLogout]);
 
   useEffect(() => {
     adminAPI.me().then((data: any) => {
@@ -115,6 +123,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         {/* Profile + Logout */}
         <div className="p-2 border-t border-gray-200 space-y-0.5">
           <NavBtn tab="profile" icon={UserCircle} label="My Profile" />
+          <button
+            onClick={() => onNavigate("/")}
+            title={!sidebarOpen ? "Go to Search" : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors ${!sidebarOpen ? "justify-center" : ""}`}
+          >
+            <ExternalLink className="w-4 h-4 shrink-0" />
+            {sidebarOpen && <span>Go to Search</span>}
+          </button>
           <div className="pt-1" />
           <button
             onClick={() => setShowLogoutDialog(true)}

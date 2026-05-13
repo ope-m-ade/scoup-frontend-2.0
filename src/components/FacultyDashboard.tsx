@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ProfilePage } from "./dashboard/ProfilePage";
 import { PapersPage } from "./dashboard/PapersPage";
@@ -8,6 +8,7 @@ import { PDFUploadPage } from "./dashboard/PDFUploadPage";
 import { SettingsPage } from "./dashboard/SettingsPage";
 import { AnalyticsPage } from "./dashboard/AnalyticsPage";
 import { NetworkPage } from "./dashboard/NetworkPage";
+import { InquiriesPage } from "./dashboard/InquiriesPage";
 import { BadgesWidget } from "./dashboard/BadgesWidget";
 import { DashboardOverview } from "./dashboard/DashboardOverview";
 import { VerificationBanner } from "./dashboard/VerificationBanner";
@@ -22,17 +23,20 @@ import {
   Settings,
   BarChart3,
   Network,
+  MessageSquare,
   Trophy,
   Home,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 
 interface FacultyDashboardProps {
   onLogout: () => void;
+  onNavigate: (path: string) => void;
 }
 
-export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
+export function FacultyDashboard({ onLogout, onNavigate }: FacultyDashboardProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<
@@ -45,8 +49,16 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
     | "settings"
     | "analytics"
     | "network"
+    | "inquiries"
     | "badges"
   >("overview");
+
+  // Auto-logout when any API call detects an expired session
+  useEffect(() => {
+    const handler = () => onLogout();
+    window.addEventListener("sessionExpired", handler);
+    return () => window.removeEventListener("sessionExpired", handler);
+  }, [onLogout]);
 
   const handleNavigate = (tab: string) => {
     if (
@@ -59,6 +71,7 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
       tab === "settings" ||
       tab === "analytics" ||
       tab === "network" ||
+      tab === "inquiries" ||
       tab === "badges"
     ) {
       setActiveTab(tab);
@@ -85,6 +98,8 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
         return <AnalyticsPage />;
       case "network":
         return <NetworkPage />;
+      case "inquiries":
+        return <InquiriesPage />;
       case "badges":
         return (
           <div className="max-w-7xl mx-auto">
@@ -151,12 +166,21 @@ export function FacultyDashboard({ onLogout }: FacultyDashboardProps) {
           <NavBtn tab="upload"    icon={Upload}    label="Upload PDF"  />
           <NavBtn tab="analytics" icon={BarChart3} label="Analytics"  />
           <NavBtn tab="network"   icon={Network}   label="Network"    />
+          <NavBtn tab="inquiries" icon={MessageSquare} label="Inquiries" />
           <NavBtn tab="badges"    icon={Trophy}    label="Badges"     />
         </nav>
 
         {/* Settings and Logout */}
         <div className="p-2 border-t border-gray-200 space-y-0.5">
           <NavBtn tab="settings" icon={Settings} label="Settings" />
+          <button
+            onClick={() => onNavigate("/")}
+            title={!sidebarOpen ? "Go to Search" : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors ${!sidebarOpen ? "justify-center" : ""}`}
+          >
+            <ExternalLink className="w-4 h-4 shrink-0" />
+            {sidebarOpen && <span>Go to Search</span>}
+          </button>
           <button
             onClick={() => setShowLogoutDialog(true)}
             title={!sidebarOpen ? "Logout" : undefined}

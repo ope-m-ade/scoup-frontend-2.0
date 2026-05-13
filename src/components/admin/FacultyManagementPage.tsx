@@ -67,11 +67,7 @@ const isInactive = (faculty: FacultyRow) =>
   (faculty.has_user && !faculty.institutional_email_verified);
 
 const needsReview = (faculty: FacultyRow) =>
-  isPending(faculty) ||
-  faculty.review_status === "rejected" ||
-  faculty.missing_data ||
-  (faculty.has_user && !faculty.institutional_email_verified) ||
-  (faculty.is_approved && !faculty.profile_visibility);
+  isPending(faculty) || (faculty.has_user && !faculty.institutional_email_verified);
 
 const departmentName = (faculty: FacultyRow) =>
   faculty.primary_department?.name || faculty.departments?.[0] || "No department";
@@ -257,11 +253,8 @@ export function FacultyManagementPage() {
 
   const reviewReasons = (faculty: FacultyRow) => {
     const reasons: string[] = [];
-    if (isPending(faculty)) reasons.push("Profile approval is pending.");
-    if (faculty.review_status === "rejected") reasons.push("Profile was rejected and may need follow-up.");
-    if (faculty.missing_data) reasons.push("Profile is missing important public-facing data.");
+    if (isPending(faculty)) reasons.push("Awaiting admin approval - email has been verified.");
     if (faculty.has_user && !faculty.institutional_email_verified) reasons.push("Institutional email is not verified.");
-    if (faculty.is_approved && !faculty.profile_visibility) reasons.push("Approved profile is currently hidden.");
     return reasons;
   };
 
@@ -319,8 +312,8 @@ export function FacultyManagementPage() {
     <div className="max-w-7xl mx-auto space-y-8">
       <div className="flex items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Faculty Management</h1>
-          <p className="text-gray-600 mt-1">Manage faculty profiles, review content, and ensure quality standards</p>
+          <h1 className="text-3xl font-light text-gray-900">Faculty Management</h1>
+          <p className="text-gray-600 font-light mt-1">Manage faculty profiles and review pending accounts</p>
         </div>
         <div className="flex gap-3">
           <Button
@@ -336,7 +329,7 @@ export function FacultyManagementPage() {
             className={viewMode === "review_queue" ? "bg-[#8b0000] hover:bg-[#6b0000] text-white" : ""}
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
-            Review Queue ({reviewQueueFaculty.length})
+            Needs Action ({reviewQueueFaculty.length})
           </Button>
         </div>
       </div>
@@ -352,7 +345,7 @@ export function FacultyManagementPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <button onClick={() => setFilterStatus("all")} className={`p-4 rounded-lg border-2 transition-all text-left ${filterStatus === "all" ? "border-[#8b0000] bg-[#8b0000]/5" : "border-gray-200 hover:border-gray-300"}`}>
-          <div className="text-sm text-gray-600 mb-1">Total Faculty</div>
+          <div className="text-sm text-gray-600 mb-1">Total</div>
           <div className="text-3xl font-light text-gray-900">{statusCounts.all}</div>
         </button>
         <button onClick={() => setFilterStatus("active")} className={`p-4 rounded-lg border-2 transition-all text-left ${filterStatus === "active" ? "border-green-600 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
@@ -368,7 +361,7 @@ export function FacultyManagementPage() {
           <div className="text-3xl font-light text-gray-600">{statusCounts.inactive}</div>
         </button>
         <button onClick={() => { setFilterStatus("needs_review"); setViewMode("review_queue"); }} className={`p-4 rounded-lg border-2 transition-all text-left ${filterStatus === "needs_review" ? "border-orange-600 bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}>
-          <div className="text-sm text-gray-600 mb-1">Needs Review</div>
+          <div className="text-sm text-gray-600 mb-1">Needs Action</div>
           <div className="text-3xl font-light text-orange-600">{statusCounts.needs_review}</div>
         </button>
       </div>
@@ -388,13 +381,13 @@ export function FacultyManagementPage() {
 
       {viewMode === "review_queue" && (
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-[#8b0000] flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-gray-900 mb-1">Content Review Queue</p>
-                <p className="text-sm text-gray-700">
-                  Review pending changes and content flags to ensure accuracy, clarity, and compliance with institutional standards.
+                <p className="text-sm font-medium text-gray-900 mb-1">Needs Action</p>
+                <p className="text-sm text-gray-600">
+                  Faculty who have verified their email and are waiting for approval, or whose email is still unverified.
                 </p>
               </div>
             </div>
@@ -420,9 +413,9 @@ export function FacultyManagementPage() {
                 </div>
                 <div className="space-y-2">
                   {reviewReasons(faculty).map((reason) => (
-                    <div key={reason} className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start justify-between gap-3">
+                    <div key={reason} className="bg-amber-50 border border-amber-100 rounded-lg p-3 flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
+                        <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                         <p className="text-sm text-gray-800">{reason}</p>
                       </div>
                       <Button size="sm" variant="outline" onClick={() => setSelectedFaculty(faculty)}>Review</Button>
@@ -540,99 +533,99 @@ export function FacultyManagementPage() {
       )}
 
       <div className="bg-gradient-to-r from-[#8b0000] to-[#6b0000] rounded-lg p-6 text-white">
-        <h3 className="font-medium text-lg mb-4">Quick Actions</h3>
+        <h3 className="font-medium mb-4">Quick Actions</h3>
         <div className="grid md:grid-cols-3 gap-4">
           <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={approvePendingProfiles}>
-            Approve Pending Profiles ({statusCounts.pending})
+            Approve All Pending ({statusCounts.pending})
           </Button>
           <a href="mailto:?subject=SCOUP faculty profile reminder">
             <Button variant="outline" className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20">
-              Send Reminder Emails
+              Send Reminder Email
             </Button>
           </a>
           <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={exportFacultyList}>
-            Export Faculty List
+            Export CSV
           </Button>
         </div>
       </div>
 
       {selectedFaculty && createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
-          <div style={{ background: "#fff", width: "100%", maxWidth: "48rem", height: "100%", overflowY: "auto" }} className="shadow-2xl">
+          <div style={{ background: "#fff", width: "100%", maxWidth: "42rem", height: "100%", overflowY: "auto" }} className="shadow-2xl">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 z-10">
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-5">
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-900">{selectedFaculty.name}</h2>
-                  <p className="text-gray-600 mt-1">{departmentName(selectedFaculty)}</p>
-                  <p className="text-sm text-gray-500">{selectedFaculty.email || selectedFaculty.institutional_email}</p>
+                  <h2 className="text-xl font-medium text-gray-900">{selectedFaculty.name}</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">{departmentName(selectedFaculty)}</p>
+                  <p className="text-sm text-gray-400">{selectedFaculty.email || selectedFaculty.institutional_email}</p>
                 </div>
                 <button onClick={() => setSelectedFaculty(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-wrap gap-2">
                 {(selectedFaculty.email || selectedFaculty.institutional_email) && (
                   <a href={`mailto:${selectedFaculty.email || selectedFaculty.institutional_email}`}>
-                    <Button variant="outline" className="w-full"><Mail className="w-4 h-4 mr-2" /> Send Email</Button>
+                    <Button size="sm" variant="outline"><Mail className="w-3.5 h-3.5 mr-1.5" /> Email</Button>
                   </a>
                 )}
                 <a href={publicProfileUrl(selectedFaculty)} target="_blank" rel="noreferrer">
-                  <Button variant="outline" className="w-full"><Eye className="w-4 h-4 mr-2" /> View Profile</Button>
+                  <Button size="sm" variant="outline"><Eye className="w-3.5 h-3.5 mr-1.5" /> View Profile</Button>
                 </a>
                 {statusFor(selectedFaculty) === "pending" && (
                   <>
-                    <Button onClick={() => handleApprove(selectedFaculty)} className="bg-green-600 hover:bg-green-700 text-white">
-                      <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                    <Button size="sm" onClick={() => handleApprove(selectedFaculty)} className="bg-green-600 hover:bg-green-700 text-white">
+                      <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Approve
                     </Button>
-                    <Button variant="outline" onClick={() => setRejectTarget(selectedFaculty)} className="border-red-300 text-red-600 hover:bg-red-50">
-                      <XCircle className="w-4 h-4 mr-2" /> Reject
+                    <Button size="sm" variant="outline" onClick={() => setRejectTarget(selectedFaculty)} className="border-red-300 text-red-600 hover:bg-red-50">
+                      <XCircle className="w-3.5 h-3.5 mr-1.5" /> Reject
                     </Button>
                   </>
                 )}
                 {statusFor(selectedFaculty) === "active" && (
-                  <Button variant="outline" onClick={() => handleToggleVisibility(selectedFaculty)} className="border-gray-300 text-gray-600 hover:bg-gray-50">
-                    <UserX className="w-4 h-4 mr-2" /> Suspend
+                  <Button size="sm" variant="outline" onClick={() => handleToggleVisibility(selectedFaculty)} className="border-gray-300 text-gray-600 hover:bg-gray-50">
+                    <UserX className="w-3.5 h-3.5 mr-1.5" /> Suspend
                   </Button>
                 )}
                 {statusFor(selectedFaculty) === "inactive" && selectedFaculty.is_approved && (
-                  <Button variant="outline" onClick={() => handleToggleVisibility(selectedFaculty)} className="border-gray-300 text-gray-600 hover:bg-gray-50">
-                    <Eye className="w-4 h-4 mr-2" /> Restore Visibility
+                  <Button size="sm" variant="outline" onClick={() => handleToggleVisibility(selectedFaculty)} className="border-gray-300 text-gray-600 hover:bg-gray-50">
+                    <Eye className="w-3.5 h-3.5 mr-1.5" /> Restore Visibility
                   </Button>
                 )}
               </div>
             </div>
 
-            <div className="p-6 space-y-8">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                  <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center">
+                  <FileText className="w-6 h-6 text-blue-500 mx-auto mb-1.5" />
                   <div className="text-2xl font-light text-gray-900">{selectedFaculty.article_count || 0}</div>
-                  <div className="text-sm text-gray-600">Papers</div>
+                  <div className="text-xs text-gray-500">Papers</div>
                 </div>
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-                  <Lightbulb className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 text-center">
+                  <Lightbulb className="w-6 h-6 text-purple-500 mx-auto mb-1.5" />
                   <div className="text-2xl font-light text-gray-900">{selectedFaculty.patent_count || 0}</div>
-                  <div className="text-sm text-gray-600">Patents</div>
+                  <div className="text-xs text-gray-500">Patents</div>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <FolderOpen className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                <div className="bg-green-50 border border-green-100 rounded-lg p-4 text-center">
+                  <FolderOpen className="w-6 h-6 text-green-500 mx-auto mb-1.5" />
                   <div className="text-2xl font-light text-gray-900">{selectedFaculty.project_count || 0}</div>
-                  <div className="text-sm text-gray-600">Projects</div>
+                  <div className="text-xs text-gray-500">Projects</div>
                 </div>
               </div>
 
               <div className="rounded-lg border border-gray-200 overflow-hidden">
                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900">Profile Governance</h3>
+                  <h3 className="text-sm font-medium text-gray-700">Profile Details</h3>
                 </div>
                 <div className="p-4 grid md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-gray-500 mb-1">Status</p>
+                    <p className="text-gray-400 text-xs mb-1">Status</p>
                     {statusBadge(selectedFaculty)}
                   </div>
                   <div>
-                    <p className="text-gray-500 mb-1">Public visibility</p>
+                    <p className="text-gray-400 text-xs mb-1">Visibility</p>
                     <button
                       onClick={() => handleToggleVisibility(selectedFaculty)}
                       className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
@@ -646,34 +639,29 @@ export function FacultyManagementPage() {
                     </button>
                   </div>
                   <div>
-                    <p className="text-gray-500 mb-1">Email verification</p>
-                    <p className="text-gray-900">{selectedFaculty.institutional_email_verified ? "Verified" : "Not verified"}</p>
+                    <p className="text-gray-400 text-xs mb-1">Email verified</p>
+                    <p className="text-gray-900">{selectedFaculty.institutional_email_verified ? "Yes" : "No"}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500 mb-1">Total citations</p>
+                    <p className="text-gray-400 text-xs mb-1">Total citations</p>
                     <p className="text-gray-900">{(selectedFaculty.total_citations || 0).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs mb-1">Last active</p>
+                    <p className="text-gray-900">{lastActiveLabel(selectedFaculty)}</p>
                   </div>
                 </div>
               </div>
 
               {reviewReasons(selectedFaculty).length > 0 && (
-                <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <AlertTriangle className="w-5 h-5 text-orange-600" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Action needed</p>
+                  {reviewReasons(selectedFaculty).map((reason) => (
+                    <div key={reason} className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 text-sm text-gray-700">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                      {reason}
                     </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Review Notes</h3>
-                      <p className="text-sm text-gray-600">Current admin attention items</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {reviewReasons(selectedFaculty).map((reason) => (
-                      <div key={reason} className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-gray-800">
-                        {reason}
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
               )}
             </div>

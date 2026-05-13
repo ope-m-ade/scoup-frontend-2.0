@@ -72,6 +72,21 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
       return;
     }
 
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      setIsLoading(false);
+      return;
+    }
+    if (!/[0-9]/.test(formData.password)) {
+      setError("Password must contain at least one number.");
+      setIsLoading(false);
+      return;
+    }
+    if (!/[^a-zA-Z0-9]/.test(formData.password)) {
+      setError("Password must contain at least one special character.");
+      setIsLoading(false);
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       setIsLoading(false);
@@ -253,6 +268,22 @@ export function FacultySignup({ onBack, onSignupSuccess }: FacultySignupProps) {
                   </Button>
                 </div>
               </div>
+
+              {/* Password rules */}
+              {formData.password && (
+                <div className="space-y-1 text-xs">
+                  {[
+                    { label: "At least 8 characters", met: formData.password.length >= 8 },
+                    { label: "At least one number", met: /[0-9]/.test(formData.password) },
+                    { label: "At least one special character", met: /[^a-zA-Z0-9]/.test(formData.password) },
+                  ].map(({ label, met }) => (
+                    <div key={label} className={`flex items-center gap-1.5 ${met ? "text-green-600" : "text-gray-400"}`}>
+                      <span>{met ? "✓" : "○"}</span>
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Confirm Password */}
               <div className="space-y-2">

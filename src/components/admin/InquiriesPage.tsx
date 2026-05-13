@@ -29,6 +29,9 @@ type Inquiry = {
   target_faculty_id: string;
   target_department: string;
   target_school: string;
+  target_project_id?: number | null;
+  target_project_title?: string;
+  requester_role?: string;
   shared_keywords: string[];
   note: string;
   admin_notes: string;
@@ -282,6 +285,9 @@ export function InquiriesPage() {
                 : "Faculty requester");
             const targetName =
               inq.target_faculty_name?.trim() || "Selected faculty member";
+            const targetLabel = inq.target_project_title
+              ? `Project: ${inq.target_project_title}`
+              : targetName;
 
             return (
               <div
@@ -314,7 +320,7 @@ export function InquiriesPage() {
                       </span>
                       <span className="text-gray-300 text-sm">→</span>
                       <span className="text-base font-semibold text-[#8b0000] leading-tight">
-                        {targetName}
+                        {targetLabel}
                       </span>
                     </div>
                     {/* Meta */}
@@ -337,6 +343,11 @@ export function InquiriesPage() {
                       <span className="text-xs text-gray-500">
                         {formatDate(inq.created_at)}
                       </span>
+                      {inq.requester_role && (
+                        <span className="text-xs text-gray-500">
+                          {inq.requester_role}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {isOpen ? (
@@ -382,8 +393,13 @@ export function InquiriesPage() {
                           Regarding
                         </p>
                         <p className="text-sm font-semibold text-gray-900 mb-2">
-                          {targetName}
+                          {targetLabel}
                         </p>
+                        {inq.target_project_title && (
+                          <p className="text-sm text-gray-600 mb-2">
+                            Faculty contact: {targetName}
+                          </p>
+                        )}
                         {inq.target_department && (
                           <p className="flex items-center gap-1.5 text-sm text-gray-600">
                             <Building2 className="w-3.5 h-3.5" />

@@ -76,6 +76,9 @@ export interface Project {
   startDate: string;
   endDate?: string;
   aiKeywords: string[];
+  isOpenToCollaboration?: boolean;
+  collaborationInvitation?: string;
+  allowStudentInterest?: boolean;
   departmentAffiliations?: string[];
   schoolAffiliations?: string[];
 }

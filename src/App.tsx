@@ -152,10 +152,10 @@ export default function App() {
 
   const renderPage = () => {
     if (currentPath === "/faculty-dashboard" && userRole === "faculty") {
-      return <FacultyDashboard onLogout={handleLogout} />;
+      return <FacultyDashboard onLogout={handleLogout} onNavigate={navigateTo} />;
     }
     if (currentPath === "/admin-dashboard" && userRole === "admin") {
-      return <AdminDashboard onLogout={handleLogout} />;
+      return <AdminDashboard onLogout={handleLogout} onNavigate={navigateTo} />;
     }
 
     switch (currentPath) {

@@ -21,6 +21,9 @@ interface Project {
   fundingAmount: string;
   keywords: string[];
   outcomes: string;
+  isOpenToCollaboration: boolean;
+  collaborationInvitation: string;
+  allowStudentInterest: boolean;
 }
 
 export function ProjectsPage() {
@@ -43,6 +46,9 @@ export function ProjectsPage() {
     fundingAmount: "",
     keywords: [],
     outcomes: "",
+    isOpenToCollaboration: false,
+    collaborationInvitation: "",
+    allowStudentInterest: true,
   });
 
   const [collaboratorInput, setCollaboratorInput] = useState("");
@@ -79,6 +85,17 @@ export function ProjectsPage() {
               project?.funding_amount ?? project?.fundingAmount ?? "",
             keywords: Array.isArray(project?.keywords) ? project.keywords : [],
             outcomes: project?.outcomes ?? "",
+            isOpenToCollaboration:
+              Boolean(project?.is_open_to_collaboration) ||
+              Boolean(project?.isOpenToCollaboration),
+            collaborationInvitation:
+              project?.collaboration_invitation ??
+              project?.collaborationInvitation ??
+              "",
+            allowStudentInterest:
+              project?.allow_student_interest ??
+              project?.allowStudentInterest ??
+              true,
           })),
         );
       } catch (err: any) {
@@ -96,8 +113,10 @@ export function ProjectsPage() {
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    const nextValue =
+      type === "checkbox" && "checked" in e.target ? e.target.checked : value;
+    setFormData((prev) => ({ ...prev, [name]: nextValue }));
   };
 
   const handleAddCollaborator = () => {
@@ -153,6 +172,9 @@ export function ProjectsPage() {
       fundingAmount: "",
       keywords: [],
       outcomes: "",
+      isOpenToCollaboration: false,
+      collaborationInvitation: "",
+      allowStudentInterest: true,
     });
   };
 
@@ -169,6 +191,9 @@ export function ProjectsPage() {
       fundingAmount: project.fundingAmount,
       keywords: project.keywords,
       outcomes: project.outcomes,
+      isOpenToCollaboration: project.isOpenToCollaboration,
+      collaborationInvitation: project.collaborationInvitation,
+      allowStudentInterest: project.allowStudentInterest,
     });
   };
 
@@ -187,6 +212,9 @@ export function ProjectsPage() {
       funding_amount: formData.fundingAmount,
       keywords: formData.keywords,
       outcomes: formData.outcomes,
+      is_open_to_collaboration: formData.isOpenToCollaboration,
+      collaboration_invitation: formData.collaborationInvitation,
+      allow_student_interest: formData.allowStudentInterest,
     };
 
     try {
@@ -224,6 +252,9 @@ export function ProjectsPage() {
         fundingAmount: "",
         keywords: [],
         outcomes: "",
+        isOpenToCollaboration: false,
+        collaborationInvitation: "",
+        allowStudentInterest: true,
       });
     } catch (err: any) {
       setError(err?.message || "Unable to save project.");
@@ -246,6 +277,9 @@ export function ProjectsPage() {
       fundingAmount: "",
       keywords: [],
       outcomes: "",
+      isOpenToCollaboration: false,
+      collaborationInvitation: "",
+      allowStudentInterest: true,
     });
   };
 
@@ -482,6 +516,52 @@ export function ProjectsPage() {
               />
             </div>
 
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isOpenToCollaboration"
+                  checked={formData.isOpenToCollaboration}
+                  onChange={handleInputChange}
+                  className="mt-1 rounded border-gray-300 text-[#8b0000] focus:ring-[#8b0000]"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-900">
+                    Open this project to collaborators
+                  </span>
+                  <span className="block text-sm text-gray-600">
+                    Show an invitation on public project results so external collaborators or students can express interest.
+                  </span>
+                </span>
+              </label>
+
+              {formData.isOpenToCollaboration && (
+                <>
+                  <div>
+                    <Label htmlFor="collaborationInvitation">Collaboration invitation</Label>
+                    <Textarea
+                      id="collaborationInvitation"
+                      name="collaborationInvitation"
+                      value={formData.collaborationInvitation}
+                      onChange={handleInputChange}
+                      placeholder="Example: We are looking for students or partners interested in field data collection, analysis, or community outreach."
+                      className="min-h-[90px] bg-white"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="allowStudentInterest"
+                      checked={formData.allowStudentInterest}
+                      onChange={handleInputChange}
+                      className="rounded border-gray-300 text-[#8b0000] focus:ring-[#8b0000]"
+                    />
+                    Allow students to submit interest
+                  </label>
+                </>
+              )}
+            </div>
+
             <div className="flex gap-2 pt-4">
               <Button
                 onClick={handleSave}
@@ -512,6 +592,11 @@ export function ProjectsPage() {
                   <Badge className={getStatusColor(project.status)}>
                     {project.status}
                   </Badge>
+                  {project.isOpenToCollaboration && (
+                    <Badge className="bg-[#8b0000]/10 text-[#8b0000] border border-[#8b0000]/20">
+                      Open to collaborators
+                    </Badge>
+                  )}
                 </div>
 
                 <p className="text-gray-700 mb-4">{project.description}</p>
@@ -578,6 +663,23 @@ export function ProjectsPage() {
                       Outcomes & Results:
                     </p>
                     <p className="text-sm text-gray-600">{project.outcomes}</p>
+                  </div>
+                )}
+
+                {project.isOpenToCollaboration && (
+                  <div className="mt-4 p-4 bg-[#8b0000]/5 border border-[#8b0000]/10 rounded-lg">
+                    <p className="text-sm font-semibold text-[#8b0000] mb-1">
+                      Collaboration Invitation
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      {project.collaborationInvitation ||
+                        "This project is open to collaborators."}
+                    </p>
+                    {project.allowStudentInterest && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Student interest submissions are enabled.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

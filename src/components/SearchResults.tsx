@@ -11,7 +11,7 @@ import {
   Send,
   X,
 } from "lucide-react";
-import type { SearchResult, FacultyMember } from "../data/searchData";
+import type { SearchResult, FacultyMember, Project } from "../data/searchData";
 import { getInitials } from "../utils/avatar";
 import { networkAPI } from "../utils/api";
 import { Button } from "./ui/button";
@@ -24,6 +24,10 @@ interface SearchResultsProps {
 }
 
 const PAGE_SIZE = 10;
+
+type InquiryTarget =
+  | { kind: "faculty"; faculty: FacultyMember }
+  | { kind: "project"; project: Project };
 
 const toCategorySlug = (name: string) =>
   name.toLowerCase().replace(/\s+/g, "-").replace(/[,()]/g, "");
@@ -58,7 +62,7 @@ export function SearchResults({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Inquiry dialog state
-  const [inquiryTarget, setInquiryTarget] = useState<FacultyMember | null>(null);
+  const [inquiryTarget, setInquiryTarget] = useState<InquiryTarget | null>(null);
   const [inquiryNote, setInquiryNote] = useState("");
   const [inquirySubmitting, setInquirySubmitting] = useState(false);
   const [inquirySuccess, setInquirySuccess] = useState<string | null>(null);
@@ -66,16 +70,29 @@ export function SearchResults({
   const [requesterName, setRequesterName] = useState("");
   const [requesterEmail, setRequesterEmail] = useState("");
   const [requesterOrg, setRequesterOrg] = useState("");
+  const [requesterRole, setRequesterRole] = useState("external collaborator");
   const inquiryTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const openInquiry = (faculty: FacultyMember) => {
-    setInquiryTarget(faculty);
+    setInquiryTarget({ kind: "faculty", faculty });
     setInquiryNote("");
     setInquirySuccess(null);
     setInquiryError(null);
     setRequesterName("");
     setRequesterEmail("");
     setRequesterOrg("");
+    setRequesterRole("external collaborator");
+  };
+
+  const openProjectInquiry = (project: Project) => {
+    setInquiryTarget({ kind: "project", project });
+    setInquiryNote("");
+    setInquirySuccess(null);
+    setInquiryError(null);
+    setRequesterName("");
+    setRequesterEmail("");
+    setRequesterOrg("");
+    setRequesterRole(project.allowStudentInterest ? "student" : "external collaborator");
   };
 
   const handleInquirySubmit = async () => {
@@ -86,11 +103,24 @@ export function SearchResults({
     if (!inquiryNote.trim()) { setInquiryError("A message is required so the admin team can understand your request."); return; }
     setInquirySubmitting(true);
     try {
+      const payload =
+        inquiryTarget.kind === "faculty"
+          ? {
+              target_faculty_name: inquiryTarget.faculty.name,
+              target_faculty_id: inquiryTarget.faculty.id,
+              target_department: inquiryTarget.faculty.department,
+              target_school: inquiryTarget.faculty.schoolAffiliations?.[0] ?? "",
+            }
+          : {
+              target_faculty_name: inquiryTarget.project.leadFaculty[0] || "Project team",
+              target_project_id: inquiryTarget.project.id,
+              target_project_title: inquiryTarget.project.title,
+              target_department: inquiryTarget.project.departmentAffiliations?.[0] ?? "",
+              target_school: inquiryTarget.project.schoolAffiliations?.[0] ?? "",
+            };
       const res = await networkAPI.publicInquire({
-        target_faculty_name: inquiryTarget.name,
-        target_faculty_id: inquiryTarget.id,
-        target_department: inquiryTarget.department,
-        target_school: inquiryTarget.schoolAffiliations?.[0] ?? "",
+        ...payload,
+        requester_role: requesterRole,
         requester_name: requesterName.trim(),
         requester_email: requesterEmail.trim(),
         requester_organization: requesterOrg.trim(),
@@ -109,6 +139,20 @@ export function SearchResults({
   }, [query, activeFilters, results]);
 
   const visibleResults = filteredResults.slice(0, visibleCount);
+  const inquiryTitle =
+    inquiryTarget?.kind === "faculty"
+      ? inquiryTarget.faculty.name
+      : inquiryTarget?.project.title ?? "";
+  const inquirySubtitle =
+    inquiryTarget?.kind === "faculty"
+      ? inquiryTarget.faculty.department
+      : inquiryTarget?.project.leadFaculty?.join(", ") ?? "";
+  const inquiryPlaceholder =
+    inquiryTarget?.kind === "project"
+      ? `Briefly describe your interest in ${inquiryTarget.project.title}.`
+      : `Briefly describe your interest - e.g. I'd like to discuss a collaboration around ${
+          inquiryTarget?.faculty.researchInterests[0] || "your research area"
+        }.`;
 
   if (filteredResults.length === 0) {
     return (
@@ -513,6 +557,30 @@ export function SearchResults({
                       })}
                     </div>
                   )}
+                  {result.data.isOpenToCollaboration && (
+                    <div className="mt-4 rounded-lg border border-[#8b0000]/15 bg-[#8b0000]/5 p-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-[#8b0000]">
+                            Open to collaborators
+                          </p>
+                          <p className="text-sm text-gray-700 mt-1">
+                            {result.data.collaborationInvitation ||
+                              "This project is accepting collaboration interest."}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100] shrink-0"
+                          onClick={() => openProjectInquiry(result.data as Project)}
+                        >
+                          <Send className="w-4 h-4" />
+                          Express Interest
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
           </div>
@@ -542,9 +610,11 @@ export function SearchResults({
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
               <div>
-                <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>Inquire via Admin</p>
-                <p style={{ fontSize: "0.9375rem", fontWeight: 500, color: "#111827", margin: "0.25rem 0 0" }}>{inquiryTarget.name}</p>
-                {inquiryTarget.department && <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "0.2rem 0 0" }}>{inquiryTarget.department}</p>}
+                <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>
+                  {inquiryTarget.kind === "project" ? "Project Interest" : "Inquiry"}
+                </p>
+                <p style={{ fontSize: "0.9375rem", fontWeight: 500, color: "#111827", margin: "0.25rem 0 0" }}>{inquiryTitle}</p>
+                {inquirySubtitle && <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "0.2rem 0 0" }}>{inquirySubtitle}</p>}
               </div>
               <button onClick={() => setInquiryTarget(null)} style={{ padding: "0.25rem", borderRadius: "0.375rem", border: "none", background: "transparent", cursor: "pointer", color: "#9ca3af" }}>
                 <X style={{ width: "1.125rem", height: "1.125rem" }} />
@@ -588,6 +658,21 @@ export function SearchResults({
                       style={{ width: "100%", padding: "0.5rem 0.75rem", fontSize: "0.875rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
                     />
                   </div>
+                  {inquiryTarget.kind === "project" && (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#374151", marginBottom: "0.3rem" }}>I am a</label>
+                      <select
+                        value={requesterRole}
+                        onChange={(e) => setRequesterRole(e.target.value)}
+                        style={{ width: "100%", padding: "0.5rem 0.75rem", fontSize: "0.875rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box", background: "#fff" }}
+                      >
+                        {inquiryTarget.project.allowStudentInterest && <option value="student">Student</option>}
+                        <option value="external collaborator">External collaborator</option>
+                        <option value="faculty collaborator">Faculty collaborator</option>
+                        <option value="community partner">Community partner</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div style={{ marginBottom: "0.75rem" }}>
                   <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#374151", marginBottom: "0.3rem" }}>Message <span style={{ color: "#dc2626" }}>*</span></label>
@@ -595,7 +680,7 @@ export function SearchResults({
                     ref={inquiryTextareaRef}
                     value={inquiryNote}
                     onChange={(e) => setInquiryNote(e.target.value)}
-                    placeholder={`Briefly describe your interest — e.g. I'd like to discuss a collaboration around ${inquiryTarget.researchInterests[0] || "your research area"}.`}
+                    placeholder={inquiryPlaceholder}
                     rows={3}
                     style={{ width: "100%", padding: "0.75rem", fontSize: "0.875rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
                   />
