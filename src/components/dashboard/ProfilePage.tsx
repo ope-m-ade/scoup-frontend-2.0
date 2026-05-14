@@ -46,6 +46,7 @@ export function ProfilePage() {
   const [facultyId, setFacultyId] = useState<number | null>(null);
   const [fallbackFacultyIds, setFallbackFacultyIds] = useState<number[]>([]);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
@@ -83,68 +84,66 @@ export function ProfilePage() {
     content: string;
   }>({ type: null, content: "" });
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      setIsLoadingProfile(true);
-      setSaveError("");
+  const loadProfile = async () => {
+    setIsLoadingProfile(true);
+    setLoadError("");
 
-      try {
-        const me = await authAPI.me();
+    try {
+      const me = await authAPI.me();
 
-        const possibleIds = [
-          me?.id,
-          me?.faculty_id,
-          me?.facultyId,
-          me?.user_id,
-          me?.user?.id,
-        ].filter((value): value is number => typeof value === "number");
+      const possibleIds = [
+        me?.id,
+        me?.faculty_id,
+        me?.facultyId,
+        me?.user_id,
+        me?.user?.id,
+      ].filter((value): value is number => typeof value === "number");
 
-        if (possibleIds.length > 0) {
-          setFacultyId(possibleIds[0]);
-          setFallbackFacultyIds(Array.from(new Set(possibleIds)));
-        }
-
-        setFormData((prev) => ({
-          ...prev,
-          firstName: me?.first_name ?? me?.firstName ?? "",
-          lastName: me?.last_name ?? me?.lastName ?? "",
-          email: me?.email ?? "",
-          department: me?.department ?? "",
-          title: me?.title ?? "",
-          phone: me?.phone ?? "",
-          officeLocation: me?.office_location ?? me?.officeLocation ?? "",
-          bio: me?.bio ?? "",
-          researchInterests:
-            me?.research_interests ?? me?.researchInterests ?? "",
-          personalWebsite: me?.personal_website ?? me?.personalWebsite ?? "",
-        }));
-
-        if (Array.isArray(me?.keywords)) {
-          setKeywords(me.keywords.filter((kw: unknown) => typeof kw === "string"));
-        }
-
-        if (Array.isArray(me?.qualifications)) {
-          setQualifications(
-            me.qualifications.map((q: any, index: number) => ({
-              id: String(q?.id ?? index),
-              degree: q?.degree ?? "",
-              institution: q?.institution ?? "",
-              year: String(q?.year ?? ""),
-            })),
-          );
-        }
-
-        const photo = me?.profile_photo || me?.profilePhoto || me?.photo;
-        setProfilePhoto(normalizePhotoUrl(photo));
-      } catch (err: any) {
-        setSaveError(err?.message || "Unable to load profile.");
-      } finally {
-        setIsLoadingProfile(false);
+      if (possibleIds.length > 0) {
+        setFacultyId(possibleIds[0]);
+        setFallbackFacultyIds(Array.from(new Set(possibleIds)));
       }
-    };
 
-    loadProfile();
-  }, []);
+      setFormData({
+        firstName: me?.first_name ?? me?.firstName ?? "",
+        lastName: me?.last_name ?? me?.lastName ?? "",
+        email: me?.email ?? "",
+        department: me?.department ?? "",
+        title: me?.title ?? "",
+        phone: me?.phone ?? "",
+        // API returns "office" — fall back through all possible field names
+        officeLocation: me?.office ?? me?.office_location ?? me?.officeLocation ?? "",
+        bio: me?.bio ?? "",
+        researchInterests: me?.research_interests ?? me?.researchInterests ?? "",
+        personalWebsite: me?.personal_website ?? me?.personalWebsite ?? "",
+      });
+
+      if (Array.isArray(me?.keywords)) {
+        setKeywords(me.keywords.filter((kw: unknown) => typeof kw === "string"));
+      }
+
+      if (Array.isArray(me?.qualifications)) {
+        setQualifications(
+          me.qualifications.map((q: any, index: number) => ({
+            id: String(q?.id ?? index),
+            degree: q?.degree ?? "",
+            institution: q?.institution ?? "",
+            year: String(q?.year ?? ""),
+          })),
+        );
+      }
+
+      const photo = me?.profile_photo || me?.profilePhoto || me?.photo;
+      setProfilePhoto(normalizePhotoUrl(photo));
+    } catch (err: any) {
+      setLoadError(err?.message || "Unable to load profile.");
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProfile(); }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -183,6 +182,13 @@ export function ProfilePage() {
     setSaveError("");
     setSaveSuccess("");
 
+    // Ensure personal_website has a scheme — Django URLField rejects bare domains
+    const rawWebsite = formData.personalWebsite.trim();
+    const normalizedWebsite =
+      rawWebsite && !rawWebsite.startsWith("http://") && !rawWebsite.startsWith("https://")
+        ? `https://${rawWebsite}`
+        : rawWebsite;
+
     const payload = {
       first_name: formData.firstName,
       last_name: formData.lastName,
@@ -190,10 +196,10 @@ export function ProfilePage() {
       department: formData.department,
       title: formData.title,
       phone: formData.phone,
-      office_location: formData.officeLocation,
+      office: formData.officeLocation,  // model field is "office", not "office_location"
       bio: formData.bio,
       research_interests: formData.researchInterests,
-      personal_website: formData.personalWebsite,
+      personal_website: normalizedWebsite || null,
       keywords,
       qualifications: qualifications.map(({ id, ...rest }) => rest),
     };
@@ -416,28 +422,58 @@ export function ProfilePage() {
           <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
           <p className="text-gray-600 mt-1">Manage your profile information and qualifications</p>
         </div>
-        <Button
-          onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-          className={isEditing ? "bg-green-600 hover:bg-green-700" : ""}
-          disabled={isLoadingProfile || isSavingProfile}
-        >
-          {isEditing ? (
-            <>
-              <Save className="w-4 h-4 mr-2" />
-              {isSavingProfile ? "Saving..." : "Save Changes"}
-            </>
-          ) : (
-            <>
-              <Edit2 className="w-4 h-4 mr-2" />
-              Edit Profile
-            </>
+        <div className="flex gap-2">
+          {isEditing && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditing(false);
+                setSaveError("");
+                setSaveSuccess("");
+                loadProfile(); // restore original data
+              }}
+              disabled={isSavingProfile}
+            >
+              Cancel
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={() => {
+              if (isEditing) {
+                handleSave();
+              } else {
+                setSaveError("");
+                setSaveSuccess("");
+                setIsEditing(true);
+              }
+            }}
+            className={isEditing ? "bg-green-600 hover:bg-green-700" : ""}
+            disabled={isLoadingProfile || isSavingProfile}
+          >
+            {isEditing ? (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                {isSavingProfile ? "Saving..." : "Save Changes"}
+              </>
+            ) : (
+              <>
+                <Edit2 className="w-4 h-4 mr-2" />
+                Edit Profile
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {isLoadingProfile && (
         <Alert>
           <AlertDescription>Loading profile...</AlertDescription>
+        </Alert>
+      )}
+
+      {loadError && (
+        <Alert variant="destructive">
+          <AlertDescription>{loadError}</AlertDescription>
         </Alert>
       )}
 
@@ -448,7 +484,7 @@ export function ProfilePage() {
       )}
 
       {saveSuccess && (
-        <Alert>
+        <Alert className="border-green-300 bg-green-50 text-green-800">
           <AlertDescription>{saveSuccess}</AlertDescription>
         </Alert>
       )}
@@ -848,36 +884,44 @@ export function ProfilePage() {
         )}
 
         <div className="space-y-3">
-          <div>
-            <Label htmlFor="newKeyword">Add Keyword</Label>
-            <div className="flex items-center">
-              <Input
-                id="newKeyword"
-                value={newKeyword}
-                onChange={(e) => setNewKeyword(e.target.value)}
-                placeholder="e.g., Machine Learning"
-                className="flex-1"
-              />
-              <Button
-                onClick={handleAddKeyword}
-                size="sm"
-                className="ml-2"
-              >
-                Add
-              </Button>
+          {isEditing && (
+            <div>
+              <Label htmlFor="newKeyword">Add Keyword</Label>
+              <div className="flex items-center">
+                <Input
+                  id="newKeyword"
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddKeyword(); } }}
+                  placeholder="e.g., Machine Learning"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAddKeyword}
+                  size="sm"
+                  className="ml-2"
+                >
+                  Add
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <Label htmlFor="keywords">Keywords</Label>
-            <div className="flex flex-wrap gap-2">
+            {keywords.length === 0 && !isEditing && (
+              <p className="text-sm text-gray-400 mt-1">No keywords added yet.</p>
+            )}
+            <div className="flex flex-wrap gap-2 mt-1">
               {keywords.map((keyword) => (
                 <Badge
                   key={keyword}
                   variant="secondary"
-                  className="cursor-pointer"
-                  onClick={() => handleDeleteKeyword(keyword)}
+                  className={isEditing ? "cursor-pointer hover:bg-red-100 hover:text-red-700" : ""}
+                  onClick={isEditing ? () => handleDeleteKeyword(keyword) : undefined}
+                  title={isEditing ? "Click to remove" : undefined}
                 >
                   {keyword}
+                  {isEditing && <X className="ml-1 w-3 h-3 inline" />}
                 </Badge>
               ))}
             </div>
