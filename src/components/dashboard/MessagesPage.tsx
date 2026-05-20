@@ -188,6 +188,17 @@ export function MessagesPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  const replyToAdmin = (msg: AdminMessage) => {
+    setComposeMode("ticket");
+    setShowCompose(true);
+    setSendMsgError(""); setSendMsgSuccess(false);
+    setSelectedRecipient(null); setRecipientSearch(""); setMsgSubject(""); setMsgBody("");
+    setSubmitError("");
+    setTicketType("other");
+    setTicketSubject(msg.message_subject && !msg.message_subject.startsWith("Re:") ? `Re: ${msg.message_subject}` : msg.message_subject || "Re: Admin Message");
+    setTicketDesc("");
+  };
+
   const updateAdminMsgStatus = async (id: number, status: "reviewed" | "closed") => {
     try {
       const updated = await facultyInquiriesAPI.update(id, { status });
@@ -475,6 +486,9 @@ export function MessagesPage() {
                     {msg.note || "No message content."}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
+                    <Button size="sm" className="bg-[#8b0000] hover:bg-[#700000] text-white" onClick={() => replyToAdmin(msg)}>
+                      <Send className="w-3.5 h-3.5 mr-1.5" /> Reply
+                    </Button>
                     {msg.status === "pending" && (
                       <Button size="sm" variant="outline" onClick={() => updateAdminMsgStatus(msg.id, "reviewed")}>
                         <CheckCircle2 className="w-4 h-4 mr-1.5" /> Mark Read
