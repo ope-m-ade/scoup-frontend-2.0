@@ -9,6 +9,7 @@ import {
   Globe,
   Mail,
   MessageSquare,
+  ShieldAlert,
   Tag,
   Users,
   XCircle,
@@ -20,11 +21,12 @@ import { Button } from "../ui/button";
 type Inquiry = {
   id: number;
   status: "pending" | "reviewed" | "closed";
-  source_type: "faculty" | "external";
+  source_type: "faculty" | "external" | "admin";
   created_at: string;
   from_faculty_name: string;
   from_faculty_email: string;
   from_faculty_department: string;
+  message_subject?: string;
   target_faculty_name: string;
   target_faculty_id: string;
   target_department: string;
@@ -64,10 +66,13 @@ function formatDate(value: string) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
 }
 
@@ -85,7 +90,11 @@ export function InquiriesPage() {
   useEffect(() => {
     adminInquiriesAPI
       .list()
-      .then((res) => setInquiries(res.results ?? []))
+      .then((res) => {
+        // Admin messages live in the Messages page — only show faculty/external here
+        const all = res.results ?? [];
+        setInquiries(all.filter((inq: any) => inq.source_type !== "admin"));
+      })
       .catch(() => setError("Failed to load inquiries."))
       .finally(() => setIsLoading(false));
   }, []);
@@ -289,11 +298,15 @@ export function InquiriesPage() {
               ? `Project: ${inq.target_project_title}`
               : targetName;
 
+            const isAdminMsg = inq.source_type === "admin";
+
             return (
               <div
                 key={inq.id}
                 className={`bg-white border rounded-lg overflow-hidden transition-all duration-200 ${
-                  inq.status === "pending"
+                  isAdminMsg
+                    ? "border-[#8b0000]/20"
+                    : inq.status === "pending"
                     ? "border-yellow-200"
                     : "border-gray-200"
                 } ${isOpen ? "shadow-md" : "hover:shadow-sm"}`}
@@ -316,7 +329,7 @@ export function InquiriesPage() {
                     {/* Names */}
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="text-base font-semibold text-gray-900 leading-tight">
-                        {fromName}
+                        {isAdminMsg ? (inq.message_subject || fromName) : fromName}
                       </span>
                       <span className="text-gray-300 text-sm">→</span>
                       <span className="text-base font-semibold text-[#8b0000] leading-tight">
@@ -331,7 +344,11 @@ export function InquiriesPage() {
                         <StatusIcon className="w-3 h-3" />
                         {STATUS_LABEL[inq.status]}
                       </span>
-                      {inq.source_type === "external" ? (
+                      {isAdminMsg ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border text-xs font-medium px-2.5 py-0.5 bg-[#8b0000]/10 text-[#8b0000] border-[#8b0000]/20">
+                          <ShieldAlert className="w-3 h-3" /> Admin Message
+                        </span>
+                      ) : inq.source_type === "external" ? (
                         <span className="inline-flex items-center gap-1 rounded-full border text-xs font-medium px-2.5 py-0.5 bg-green-50 text-green-700 border-green-200">
                           <Globe className="w-3 h-3" /> External
                         </span>
@@ -364,7 +381,9 @@ export function InquiriesPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="rounded-lg bg-gray-50 border border-gray-200 p-4">
                         <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-3">
-                          {inq.source_type === "external"
+                          {isAdminMsg
+                            ? "Sent By"
+                            : inq.source_type === "external"
                             ? "External Requester"
                             : "From Faculty"}
                         </p>
@@ -438,7 +457,9 @@ export function InquiriesPage() {
                     {inq.note && (
                       <div className="space-y-4">
                         <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">
-                          {inq.source_type === "external"
+                          {isAdminMsg
+                            ? "Message Body"
+                            : inq.source_type === "external"
                             ? "Message from Requester"
                             : "Note from Faculty"}
                         </p>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Phone, MapPin, Linkedin, Github } from "lucide-react";
+import { Mail, Phone, MapPin, Linkedin, Github, BookOpen, Server } from "lucide-react";
 import { Navbar } from "./Navbar";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -25,6 +25,8 @@ interface ContactSettings {
   support_email: string;
   github_url: string;
   linkedin_url: string;
+  documentation_url?: string;
+  api_documentation_url?: string;
   address_line_1: string;
   address_line_2: string;
   address_line_3: string;
@@ -185,15 +187,33 @@ export function Contact({ onNavigate }: ContactProps) {
               <div className="text-center">
                 <h3 className="text-2xl font-semibold mb-4">Explore SCOUP</h3>
                 <p className="text-gray-100 mb-6 max-w-2xl mx-auto">
-                  Explore our open-source codebase on GitHub
+                  Explore the codebase and project documentation.
                 </p>
                 <div className="flex flex-wrap justify-center gap-4">
-                  <Button asChild className="bg-white text-[#8b0000] hover:bg-gray-100">
-                    <a href={settings?.github_url || "#"} target="_blank" rel="noopener noreferrer">
-                      <Github className="w-4 h-4 mr-2" />
-                      View on GitHub
-                    </a>
-                  </Button>
+                  {settings?.github_url && (
+                    <Button asChild className="bg-white text-[#8b0000] hover:bg-gray-100">
+                      <a href={settings.github_url} target="_blank" rel="noopener noreferrer">
+                        <Github className="w-4 h-4 mr-2" />
+                        View on GitHub
+                      </a>
+                    </Button>
+                  )}
+                  {settings?.documentation_url && (
+                    <Button asChild variant="outline" className="border-white text-white hover:bg-white hover:text-[#8b0000]">
+                      <a href={settings.documentation_url} target="_blank" rel="noopener noreferrer">
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        Documentation
+                      </a>
+                    </Button>
+                  )}
+                  {settings?.api_documentation_url && (
+                    <Button asChild variant="outline" className="border-white text-white hover:bg-white hover:text-[#8b0000]">
+                      <a href={settings.api_documentation_url} target="_blank" rel="noopener noreferrer">
+                        <Server className="w-4 h-4 mr-2" />
+                        API Docs
+                      </a>
+                    </Button>
+                  )}
                   {/* <Button asChild variant="outline" className="border-white text-white hover:bg-white hover:text-[#8b0000]">
                     <a href={settings?.linkedin_url || "#"} target="_blank" rel="noopener noreferrer">
                       <Linkedin className="w-4 h-4 mr-2" />

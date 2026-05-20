@@ -31,7 +31,11 @@ export function InquiriesPage() {
   useEffect(() => {
     facultyInquiriesAPI
       .list()
-      .then((res) => setInquiries(res.results ?? []))
+      .then((res) => {
+        const all = res.results ?? [];
+        // Admin messages go to the Messages tab — only show collaboration requests here
+        setInquiries(all.filter((inq: any) => inq.source_type !== "admin"));
+      })
       .catch((err) => setError(err?.message || "Unable to load inquiries."))
       .finally(() => setIsLoading(false));
   }, []);

@@ -3,11 +3,9 @@ import { createPortal } from "react-dom";
 import {
   Users,
   Search,
-  Mail,
   Building2,
   FolderOpen,
   Sparkles,
-  AlertCircle,
   ExternalLink,
   Filter,
   FileText,
@@ -23,7 +21,7 @@ import { fetchPublicDataset } from "../../utils/publicData";
 import type { FacultyMember, Paper, Patent, Project } from "../../data/searchData";
 import { getInitials } from "../../utils/avatar";
 
-type ActiveTab = "colleagues" | "papers" | "patents" | "projects";
+type ActiveTab = "colleagues" | "resources";
 
 type ColleagueMatch = {
   id: string;
@@ -88,6 +86,20 @@ type ProjectOpportunity = {
   relevanceScore: number;
   relevanceReason: string;
   sharedKeywords: string[];
+};
+
+type ResourceOpportunity = {
+  id: string;
+  type: "paper" | "patent" | "project";
+  title: string;
+  subtitle: string;
+  description: string;
+  meta: string[];
+  score: number;
+  reason: string;
+  keywords: string[];
+  link?: string;
+  leadQuery: string;
 };
 
 const DEFAULT_RESULT_LIMIT = 5;
@@ -301,6 +313,8 @@ export function NetworkPage() {
   const [paperOpportunities, setPaperOpportunities] = useState<PaperOpportunity[]>([]);
   const [patentOpportunities, setPatentOpportunities] = useState<PatentOpportunity[]>([]);
   const [projectOpportunities, setProjectOpportunities] = useState<ProjectOpportunity[]>([]);
+  const [suggestedCategories, setSuggestedCategories] = useState<string[]>([]);
+  const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
 
   // Inquiry dialog state
   const [inquiryTarget, setInquiryTarget] = useState<ColleagueMatch | null>(null);
@@ -308,6 +322,7 @@ export function NetworkPage() {
   const [inquirySubmitting, setInquirySubmitting] = useState(false);
   const [inquirySuccess, setInquirySuccess] = useState<string | null>(null);
   const inquiryTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const networkSearchRequestRef = useRef(0);
 
   const applyNetworkDiscovery = (discovery: any) => {
     const serverColleagues = Array.isArray(discovery?.colleagues)
@@ -318,6 +333,8 @@ export function NetworkPage() {
     const serverProjects = Array.isArray(discovery?.projects) ? discovery.projects : [];
 
     setCurrentUserInterests(toLowerList(toKeywordList(discovery?.profileKeywords)));
+    setSuggestedCategories(toKeywordList(discovery?.suggestedCategories));
+    setExpandedTerms(toKeywordList(discovery?.expandedTerms));
     setColleagueMatches(
       serverColleagues.map((item: any): ColleagueMatch => ({
         id: cleanText(item?.id),
@@ -628,16 +645,22 @@ export function NetworkPage() {
 
   useEffect(() => {
     if (!usesNetworkEndpoint) return;
+    const q = searchQuery.trim();
+    const requestId = ++networkSearchRequestRef.current;
 
     const timeout = window.setTimeout(async () => {
+      if (q.length === 1) return;
+
       try {
-        const discovery = await networkAPI.discovery({ q: searchQuery, limit: 50 });
+        const discovery = await networkAPI.discovery(q ? { q, limit: 50 } : { limit: 50 });
+        if (requestId !== networkSearchRequestRef.current) return;
         applyNetworkDiscovery(discovery);
         setError("");
       } catch (err: any) {
+        if (requestId !== networkSearchRequestRef.current) return;
         setError(err?.message || "Unable to search collaboration network.");
       }
-    }, 250);
+    }, q ? 550 : 150);
 
     return () => window.clearTimeout(timeout);
   }, [searchQuery, usesNetworkEndpoint]);
@@ -673,8 +696,9 @@ export function NetworkPage() {
   );
 
   const filteredPapers = useMemo(
-    () =>
-      paperOpportunities.filter((paper) =>
+    () => {
+      if (usesNetworkEndpoint && hasSearch) return paperOpportunities;
+      return paperOpportunities.filter((paper) =>
         includesSearch(
           [
             paper.title,
@@ -687,13 +711,15 @@ export function NetworkPage() {
           ],
           searchQuery,
         ),
-      ),
-    [paperOpportunities, searchQuery],
+      );
+    },
+    [paperOpportunities, searchQuery, usesNetworkEndpoint, hasSearch],
   );
 
   const filteredPatents = useMemo(
-    () =>
-      patentOpportunities.filter((patent) =>
+    () => {
+      if (usesNetworkEndpoint && hasSearch) return patentOpportunities;
+      return patentOpportunities.filter((patent) =>
         includesSearch(
           [
             patent.title,
@@ -706,13 +732,15 @@ export function NetworkPage() {
           ],
           searchQuery,
         ),
-      ),
-    [patentOpportunities, searchQuery],
+      );
+    },
+    [patentOpportunities, searchQuery, usesNetworkEndpoint, hasSearch],
   );
 
   const filteredProjects = useMemo(
-    () =>
-      projectOpportunities.filter((project) =>
+    () => {
+      if (usesNetworkEndpoint && hasSearch) return projectOpportunities;
+      return projectOpportunities.filter((project) =>
         includesSearch(
           [
             project.title,
@@ -725,8 +753,9 @@ export function NetworkPage() {
           ],
           searchQuery,
         ),
-      ),
-    [projectOpportunities, searchQuery],
+      );
+    },
+    [projectOpportunities, searchQuery, usesNetworkEndpoint, hasSearch],
   );
 
   const visibleColleagues = useMemo(
@@ -745,6 +774,63 @@ export function NetworkPage() {
     () => (hasSearch ? filteredProjects : filteredProjects.slice(0, DEFAULT_RESULT_LIMIT)),
     [filteredProjects, hasSearch],
   );
+  const visibleResources = useMemo<ResourceOpportunity[]>(() => {
+    const papers: ResourceOpportunity[] = visiblePapers.map((paper) => ({
+      id: `paper-${paper.id}`,
+      type: "paper",
+      title: paper.title,
+      subtitle: paper.authors.slice(0, 4).join(", ") || "Authors not listed",
+      description: paper.abstract,
+      meta: [
+        paper.journal,
+        paper.year > 0 ? String(paper.year) : "",
+        paper.citations > 0 ? `${paper.citations} citations` : "",
+        paper.departments[0],
+      ].filter(Boolean),
+      score: paper.relevanceScore,
+      reason: paper.relevanceReason,
+      keywords: paper.sharedKeywords.length > 0 ? paper.sharedKeywords : paper.keywords.slice(0, 5),
+      link: paper.link,
+      leadQuery: paper.title,
+    }));
+
+    const patents: ResourceOpportunity[] = visiblePatents.map((patent) => ({
+      id: `patent-${patent.id}`,
+      type: "patent",
+      title: patent.title,
+      subtitle: patent.inventors.slice(0, 4).join(", ") || "Inventors not listed",
+      description: patent.description,
+      meta: [
+        patent.patentNumber,
+        patent.year > 0 ? String(patent.year) : "",
+        patent.departments[0],
+      ].filter(Boolean),
+      score: patent.relevanceScore,
+      reason: patent.relevanceReason,
+      keywords: patent.sharedKeywords.length > 0 ? patent.sharedKeywords : patent.keywords.slice(0, 5),
+      link: patent.link,
+      leadQuery: patent.title,
+    }));
+
+    const projects: ResourceOpportunity[] = visibleProjects.map((project) => ({
+      id: `project-${project.id}`,
+      type: "project",
+      title: project.title,
+      subtitle: project.leadFaculty.length > 0 ? `Lead: ${project.leadFaculty.slice(0, 3).join(", ")}` : project.status,
+      description: project.description,
+      meta: [
+        project.status,
+        project.department,
+        project.school,
+      ].filter(Boolean),
+      score: project.relevanceScore,
+      reason: project.relevanceReason,
+      keywords: project.sharedKeywords.length > 0 ? project.sharedKeywords : project.keywords.slice(0, 5),
+      leadQuery: project.title,
+    }));
+
+    return [...papers, ...patents, ...projects].sort((a, b) => b.score - a.score);
+  }, [visiblePapers, visiblePatents, visibleProjects]);
 
   const departments = useMemo(
     () => ["all", ...Array.from(new Set(colleagueMatches.map((f) => f.department).filter(Boolean))).sort()],
@@ -763,23 +849,10 @@ export function NetworkPage() {
     return "Potential Match";
   };
 
-  const getVisibleCount = (tab: ActiveTab) => {
-    if (tab === "colleagues") return visibleColleagues.length;
-    if (tab === "papers") return visiblePapers.length;
-    if (tab === "patents") return visiblePatents.length;
-    return visibleProjects.length;
-  };
-
-  const getFilteredCount = (tab: ActiveTab) => {
-    if (tab === "colleagues") return filteredColleagues.length;
-    if (tab === "papers") return filteredPapers.length;
-    if (tab === "patents") return filteredPatents.length;
-    return filteredProjects.length;
-  };
-
   const renderLimitHint = () => {
-    const total = getFilteredCount(activeTab);
-    const visible = getVisibleCount(activeTab);
+    const resourceTotal = filteredPapers.length + filteredPatents.length + filteredProjects.length;
+    const total = activeTab === "colleagues" ? filteredColleagues.length : resourceTotal;
+    const visible = activeTab === "colleagues" ? visibleColleagues.length : visibleResources.length;
     if (hasSearch || total <= visible) return null;
     return (
       <p className="text-sm text-gray-600">
@@ -788,12 +861,29 @@ export function NetworkPage() {
     );
   };
 
+  const tabCounts: Record<ActiveTab, number> = {
+    colleagues: visibleColleagues.length,
+    resources: visibleResources.length,
+  };
+
   const tabClassName = (tab: ActiveTab) =>
     `pb-3 px-1 font-medium transition-colors border-b-2 ${
       activeTab === tab
         ? "border-[#8b0000] text-[#8b0000]"
         : "border-transparent text-gray-600 hover:text-gray-900"
     }`;
+
+  const resourceTypeLabel = (type: ResourceOpportunity["type"]) => {
+    if (type === "paper") return "Paper";
+    if (type === "patent") return "Patent";
+    return "Project";
+  };
+
+  const ResourceIcon = ({ type }: { type: ResourceOpportunity["type"] }) => {
+    if (type === "paper") return <FileText className="w-4 h-4" />;
+    if (type === "patent") return <Lightbulb className="w-4 h-4" />;
+    return <FolderOpen className="w-4 h-4" />;
+  };
 
   const handleInquirySubmit = async () => {
     if (!inquiryTarget) return;
@@ -888,7 +978,7 @@ export function NetworkPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Collaboration Network</h1>
         <p className="text-gray-600 mt-1">
-          Discover Salisbury colleagues, publications, patents, and projects related to your profile
+          Turn a project idea into faculty leads and supporting research signals.
         </p>
       </div>
 
@@ -896,13 +986,16 @@ export function NetworkPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-white border border-gray-200 rounded-lg p-5">
         <div className="flex items-start gap-3">
-          <Sparkles className="w-5 h-5 text-[#8b0000] flex-shrink-0 mt-0.5" />
+          <div className="w-10 h-10 rounded-lg bg-[#8b0000]/10 flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5 text-[#8b0000]" />
+          </div>
           <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">Salisbury Collaboration Discovery</p>
-            <p className="text-sm text-gray-700">
-              Matches prioritize SU affiliation, shared keywords, school/department alignment, and richer profile records.
+            <p className="text-base font-medium text-gray-900">Start with a collaboration idea</p>
+            <p className="mt-1 text-sm text-gray-600 max-w-3xl">
+              Describe a topic, grant idea, course concept, or applied research question. SCOUP uses profile data,
+              publications, projects, and fallback bridge terms to suggest where disciplines may connect.
             </p>
           </div>
         </div>
@@ -914,13 +1007,13 @@ export function NetworkPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
               type="text"
-              placeholder="Search by name, email, department, school, paper, patent, or expertise..."
+              placeholder="Describe a collaboration idea, e.g. NLP on Shakespearean text or data science for student success..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
           </div>
-          {activeTab === "colleagues" && (
+          {activeTab === "colleagues" && visibleColleagues.length > 0 && (
             <div className="flex items-center gap-2">
               <Filter className="w-5 h-5 text-gray-400" />
               <select
@@ -937,6 +1030,36 @@ export function NetworkPage() {
             </div>
           )}
         </div>
+        {hasSearch && (suggestedCategories.length > 0 || expandedTerms.length > 0) && (
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            {suggestedCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-xs font-medium text-gray-500">Suggested bridge</span>
+                {suggestedCategories.map((category) => (
+                  <span
+                    key={category}
+                    className="inline-flex items-center rounded-full bg-[#8b0000]/10 px-2.5 py-1 text-xs font-medium text-[#8b0000]"
+                  >
+                    {category}
+                  </span>
+                ))}
+              </div>
+            )}
+            {expandedTerms.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-500">Also searching</span>
+                {expandedTerms.slice(0, 8).map((term) => (
+                  <span
+                    key={term}
+                    className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
+                  >
+                    {term}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="border-b border-gray-200">
@@ -944,25 +1067,13 @@ export function NetworkPage() {
           <button onClick={() => setActiveTab("colleagues")} className={tabClassName("colleagues")}>
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Colleagues ({visibleColleagues.length})
+              Faculty leads ({tabCounts.colleagues})
             </div>
           </button>
-          <button onClick={() => setActiveTab("papers")} className={tabClassName("papers")}>
+          <button onClick={() => setActiveTab("resources")} className={tabClassName("resources")}>
             <div className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
-              Papers ({visiblePapers.length})
-            </div>
-          </button>
-          <button onClick={() => setActiveTab("patents")} className={tabClassName("patents")}>
-            <div className="flex items-center gap-2">
-              <Lightbulb className="w-5 h-5" />
-              Patents ({visiblePatents.length})
-            </div>
-          </button>
-          <button onClick={() => setActiveTab("projects")} className={tabClassName("projects")}>
-            <div className="flex items-center gap-2">
-              <FolderOpen className="w-5 h-5" />
-              Projects ({visibleProjects.length})
+              Resources ({tabCounts.resources})
             </div>
           </button>
         </div>
@@ -979,50 +1090,43 @@ export function NetworkPage() {
           {visibleColleagues.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
               <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No colleagues found</h3>
-              <p className="text-gray-600">Try adjusting your search or filters</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No faculty leads found</h3>
+              <p className="text-gray-600">Try a broader project idea or remove the department filter.</p>
             </div>
           ) : (
             visibleColleagues.map((colleague) => (
-              <div key={colleague.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-start gap-6">
-                  <div className="w-20 h-20 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
+              <div key={colleague.id} className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-4">
+                  <div className="w-16 h-16 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
                     {colleague.photo ? (
                       <img src={colleague.photo} alt={colleague.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-[#8b0000] text-lg font-semibold text-white">
+                      <div className="w-full h-full flex items-center justify-center bg-[#8b0000] text-base font-semibold text-white">
                         {getInitials(colleague.name)}
                       </div>
                     )}
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
-                        <h3 className="text-xl font-medium text-gray-900">{colleague.name}</h3>
+                        <h3 className="text-lg font-medium text-gray-900">{colleague.name}</h3>
                         {colleague.title && <p className="mt-1 text-sm text-gray-600">{colleague.title}</p>}
-                        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
+                        <div className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">
                           {colleague.department && (
-                            <span className="inline-flex items-center gap-2">
-                              <Building2 className="w-4 h-4 text-gray-400" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1">
+                              <Building2 className="w-3.5 h-3.5 text-gray-400" />
                               {colleague.department}
                             </span>
                           )}
                           {colleague.school && (
-                            <span className="inline-flex items-center gap-2">
-                              <GraduationCap className="w-4 h-4 text-gray-400" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1">
+                              <GraduationCap className="w-3.5 h-3.5 text-gray-400" />
                               {colleague.school}
                             </span>
                           )}
-                          {colleague.email && (
-                            <a href={`mailto:${colleague.email}`} className="inline-flex items-center gap-2 hover:text-[#8b0000]">
-                              <Mail className="w-4 h-4 text-gray-400" />
-                              {colleague.email}
-                            </a>
-                          )}
                           {colleague.articleCount > 0 && (
-                            <span className="inline-flex items-center gap-2">
-                              <FileText className="w-4 h-4 text-gray-400" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1">
+                              <FileText className="w-3.5 h-3.5 text-gray-400" />
                               {colleague.articleCount} papers
                             </span>
                           )}
@@ -1032,69 +1136,22 @@ export function NetworkPage() {
                         {colleague.matchScore}% · {getMatchLabel(colleague.matchScore)}
                       </div>
                     </div>
-
-                    {/* Collaboration suggestion — prominent when shared keywords exist */}
-                    {colleague.sharedKeywords.length > 0 && colleague.matchScore >= 60 ? (
-                      <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Sparkles className="w-4 h-4 text-green-700 shrink-0" />
-                          <span className="text-xs font-semibold text-green-800 uppercase tracking-wide">
-                            SCOUP Collaboration Suggestion
-                          </span>
-                          {colleague.collaborationScore > 0 && (
-                            <span className="ml-auto text-xs text-green-700 font-medium">
-                              {colleague.collaborationScore}% keyword match
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-green-900">
-                          You and {colleague.name.split(" ")[0]} share expertise in{" "}
-                          <strong>{colleague.sharedKeywords.slice(0, 3).join(", ")}</strong>.{" "}
-                          {colleague.matchReason}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
-                        {colleague.matchReason}
-                      </div>
-                    )}
-
-                    {colleague.bio && (
-                      <p className="mt-3 text-sm text-gray-600 line-clamp-2">{colleague.bio}</p>
-                    )}
-
+                    <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-gray-700">
+                      {colleague.sharedKeywords.length > 0 ? (
+                        <>Possible overlap in <strong>{colleague.sharedKeywords.slice(0, 3).join(", ")}</strong>. {colleague.matchReason}</>
+                      ) : (
+                        colleague.matchReason
+                      )}
+                    </div>
+                    {colleague.bio && <p className="mt-3 text-sm text-gray-600 line-clamp-2">{colleague.bio}</p>}
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {(colleague.sharedKeywords.length > 0
-                        ? colleague.sharedKeywords
-                        : colleague.researchInterests.slice(0, 5)
-                      ).map((keyword) => (
+                      {(colleague.sharedKeywords.length > 0 ? colleague.sharedKeywords : colleague.researchInterests.slice(0, 5)).map((keyword) => (
                         <span key={keyword} className="px-2 py-1 bg-[#ffd100]/20 text-[#8b0000] text-xs rounded-full">
                           {keyword}
                         </span>
                       ))}
                     </div>
-
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
-                      {colleague.email && (
-                        <a
-                          href={`mailto:${colleague.email}?subject=${encodeURIComponent(
-                            colleague.sharedKeywords.length > 0
-                              ? `Collaboration Opportunity via SCOUP – ${colleague.sharedKeywords.slice(0, 2).join(" & ")}`
-                              : "Collaboration Opportunity via SCOUP"
-                          )}&body=${encodeURIComponent(
-                            `Hello ${colleague.name},\n\nI came across your profile on SCOUP and noticed we share expertise in ${
-                              colleague.sharedKeywords.length > 0
-                                ? colleague.sharedKeywords.slice(0, 3).join(", ")
-                                : "related research areas"
-                            }. I'd love to explore potential collaboration opportunities — whether that's a joint project, grant proposal, or co-teaching.\n\nLooking forward to connecting.\n\nBest regards`
-                          )}`}
-                        >
-                          <Button size="sm" className="bg-[#8b0000] hover:bg-[#700000]">
-                            <Mail className="w-4 h-4 mr-2" />
-                            {colleague.sharedKeywords.length > 0 ? "Suggest Collaboration" : "Contact"}
-                          </Button>
-                        </a>
-                      )}
+                    <div className="mt-4">
                       <Button
                         size="sm"
                         variant="outline"
@@ -1115,156 +1172,59 @@ export function NetworkPage() {
             ))
           )}
         </div>
-      ) : activeTab === "papers" ? (
-        <div className="space-y-4">
-          {visiblePapers.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No papers found</h3>
-              <p className="text-gray-600">Try a broader search query</p>
-            </div>
-          ) : (
-            visiblePapers.map((paper) => (
-              <div key={paper.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-xl font-medium text-gray-900">{paper.title}</h3>
-                    <p className="mt-2 text-sm text-gray-600">
-                      {paper.authors.slice(0, 4).join(", ") || "Authors not listed"}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
-                      {paper.journal && <span>{paper.journal}</span>}
-                      {paper.year > 0 && <span>{paper.year}</span>}
-                      {paper.citations > 0 && <span>{paper.citations} citations</span>}
-                      {paper.departments[0] && (
-                        <span className="inline-flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-gray-400" />
-                          {paper.departments[0]}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className={`w-fit rounded-full border px-3 py-1 text-xs font-medium ${getMatchColor(paper.relevanceScore)}`}>
-                    {paper.relevanceScore}% Relevance
-                  </div>
-                </div>
-                <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
-                  {paper.relevanceReason}
-                </div>
-                {paper.abstract && <p className="mt-3 text-sm text-gray-600 line-clamp-2">{paper.abstract}</p>}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {(paper.sharedKeywords.length > 0 ? paper.sharedKeywords : paper.keywords.slice(0, 5)).map((keyword) => (
-                    <span key={keyword} className="px-2 py-1 bg-[#ffd100]/20 text-[#8b0000] text-xs rounded-full">
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-                {paper.link && (
-                  <a href={paper.link} target="_blank" rel="noreferrer" className="mt-4 inline-flex">
-                    <Button size="sm" variant="outline">
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open Paper
-                    </Button>
-                  </a>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      ) : activeTab === "patents" ? (
-        <div className="space-y-4">
-          {visiblePatents.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <Lightbulb className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No patents found</h3>
-              <p className="text-gray-600">Try a broader search query</p>
-            </div>
-          ) : (
-            visiblePatents.map((patent) => (
-              <div key={patent.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-xl font-medium text-gray-900">{patent.title}</h3>
-                    <p className="mt-2 text-sm text-gray-600">
-                      {patent.inventors.slice(0, 4).join(", ") || "Inventors not listed"}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
-                      {patent.patentNumber && <span>{patent.patentNumber}</span>}
-                      {patent.year > 0 && <span>{patent.year}</span>}
-                      {patent.departments[0] && (
-                        <span className="inline-flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-gray-400" />
-                          {patent.departments[0]}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className={`w-fit rounded-full border px-3 py-1 text-xs font-medium ${getMatchColor(patent.relevanceScore)}`}>
-                    {patent.relevanceScore}% Relevance
-                  </div>
-                </div>
-                <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
-                  {patent.relevanceReason}
-                </div>
-                {patent.description && <p className="mt-3 text-sm text-gray-600 line-clamp-2">{patent.description}</p>}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {(patent.sharedKeywords.length > 0 ? patent.sharedKeywords : patent.keywords.slice(0, 5)).map((keyword) => (
-                    <span key={keyword} className="px-2 py-1 bg-[#ffd100]/20 text-[#8b0000] text-xs rounded-full">
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-                {patent.link && (
-                  <a href={patent.link} target="_blank" rel="noreferrer" className="mt-4 inline-flex">
-                    <Button size="sm" variant="outline">
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open Patent
-                    </Button>
-                  </a>
-                )}
-              </div>
-            ))
-          )}
-        </div>
       ) : (
         <div className="space-y-4">
-          {visibleProjects.length === 0 ? (
+          {visibleResources.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No project opportunities found</h3>
-              <p className="text-gray-600">Try a broader search query</p>
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No related resources found</h3>
+              <p className="text-gray-600">Try a broader project idea.</p>
             </div>
           ) : (
-            visibleProjects.map((project) => (
-              <div key={project.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+            visibleResources.map((resource) => (
+              <div key={resource.id} className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
-                    <h3 className="text-xl font-medium text-gray-900">{project.title}</h3>
-                    <p className="mt-2 text-sm text-gray-600">{project.description || "No description listed."}</p>
-                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
-                      <span>Status: {project.status}</span>
-                      {project.leadFaculty.length > 0 && <span>Lead: {project.leadFaculty.slice(0, 3).join(", ")}</span>}
-                      {project.department && (
-                        <span className="inline-flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-gray-400" />
-                          {project.department}
-                        </span>
-                      )}
+                    <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                      <ResourceIcon type={resource.type} />
+                      {resourceTypeLabel(resource.type)}
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">{resource.title}</h3>
+                    {resource.subtitle && <p className="mt-2 text-sm text-gray-600">{resource.subtitle}</p>}
+                    <div className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">
+                      {resource.meta.map((item) => (
+                        <span key={item} className="rounded-full bg-gray-50 px-2.5 py-1">{item}</span>
+                      ))}
                     </div>
                   </div>
-                  <div className={`w-fit rounded-full border px-3 py-1 text-xs font-medium ${getMatchColor(project.relevanceScore)}`}>
-                    {project.relevanceScore}% Relevance
+                  <div className={`w-fit rounded-full border px-3 py-1 text-xs font-medium ${getMatchColor(resource.score)}`}>
+                    {resource.score}% Relevance
                   </div>
                 </div>
-                <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
-                  {project.relevanceReason}
+                <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-gray-700">
+                  {resource.reason}
                 </div>
+                {resource.description && <p className="mt-3 text-sm text-gray-600 line-clamp-2">{resource.description}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {(project.sharedKeywords.length > 0 ? project.sharedKeywords : project.keywords.slice(0, 5)).map((keyword) => (
+                  {resource.keywords.map((keyword) => (
                     <span key={keyword} className="px-2 py-1 bg-[#ffd100]/20 text-[#8b0000] text-xs rounded-full">
                       {keyword}
                     </span>
                   ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {resource.link && (
+                    <a href={resource.link} target="_blank" rel="noreferrer">
+                      <Button size="sm" variant="outline">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Resource
+                      </Button>
+                    </a>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => { setSearchQuery(resource.leadQuery); setActiveTab("colleagues"); }}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Find Faculty Leads
+                  </Button>
                 </div>
               </div>
             ))

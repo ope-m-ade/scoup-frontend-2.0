@@ -13,7 +13,9 @@ import {
   FolderOpen,
   Lightbulb,
   Mail,
+  MessageSquare,
   Search,
+  Send,
   User,
   UserX,
   X,
@@ -108,6 +110,13 @@ export function FacultyManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkVisibilityAction, setBulkVisibilityAction] = useState<"show" | "hide" | null>(null);
+
+  // Admin → Faculty direct messaging
+  const [msgModalOpen, setMsgModalOpen] = useState(false);
+  const [msgSubject, setMsgSubject] = useState("");
+  const [msgNote, setMsgNote] = useState("");
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgError, setMsgError] = useState("");
 
   const loadFaculty = async () => {
     setIsLoading(true);
@@ -305,6 +314,32 @@ export function FacultyManagementPage() {
       flash(e?.message || "Bulk update failed.");
     } finally {
       setBulkVisibilityAction(null);
+    }
+  };
+
+  const openMsgModal = () => {
+    setMsgSubject("");
+    setMsgNote("");
+    setMsgError("");
+    setMsgModalOpen(true);
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedFaculty) return;
+    if (!msgNote.trim()) { setMsgError("Message body is required."); return; }
+    setMsgSending(true);
+    setMsgError("");
+    try {
+      await adminAPI.sendFacultyMessage(selectedFaculty.id, {
+        note: msgNote.trim(),
+        message_subject: msgSubject.trim() || undefined,
+      });
+      setMsgModalOpen(false);
+      flash(`Message sent to ${selectedFaculty.name}.`);
+    } catch (e: any) {
+      setMsgError(e?.message || "Failed to send message.");
+    } finally {
+      setMsgSending(false);
     }
   };
 
@@ -570,6 +605,9 @@ export function FacultyManagementPage() {
                     <Button size="sm" variant="outline"><Mail className="w-3.5 h-3.5 mr-1.5" /> Email</Button>
                   </a>
                 )}
+                <Button size="sm" variant="outline" onClick={openMsgModal}>
+                  <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Message
+                </Button>
                 <a href={publicProfileUrl(selectedFaculty)} target="_blank" rel="noreferrer">
                   <Button size="sm" variant="outline"><Eye className="w-3.5 h-3.5 mr-1.5" /> View Profile</Button>
                 </a>
@@ -738,6 +776,73 @@ export function FacultyManagementPage() {
                 className={bulkVisibilityAction === "show" ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-700 hover:bg-gray-800 text-white"}
               >
                 Yes, {bulkVisibilityAction === "show" ? "make visible" : "hide"}
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* Admin → Faculty compose modal */}
+      {msgModalOpen && selectedFaculty && createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ background: "#fff", borderRadius: "0.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", padding: "1.5rem", width: "100%", maxWidth: "30rem" }}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Send Message</h3>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  To: <span className="font-medium text-gray-700">{selectedFaculty.name}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setMsgModalOpen(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Subject <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={msgSubject}
+                  onChange={(e) => setMsgSubject(e.target.value)}
+                  placeholder="e.g. Next steps for your profile"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b0000]/40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Message <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={msgNote}
+                  onChange={(e) => setMsgNote(e.target.value)}
+                  placeholder="Write your message here..."
+                  rows={5}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b0000]/40 resize-none"
+                />
+              </div>
+            </div>
+
+            {msgError && (
+              <p className="mt-2 text-xs text-red-600">{msgError}</p>
+            )}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setMsgModalOpen(false)} disabled={msgSending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSendMessage}
+                disabled={msgSending}
+                className="bg-[#8b0000] hover:bg-[#700000] text-white"
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                {msgSending ? "Sending…" : "Send Message"}
               </Button>
             </div>
           </div>

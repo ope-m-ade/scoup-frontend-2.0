@@ -15,6 +15,7 @@ import type { SearchResult, FacultyMember, Project } from "../data/searchData";
 import { getInitials } from "../utils/avatar";
 import { networkAPI } from "../utils/api";
 import { Button } from "./ui/button";
+import { FacultySlideOver } from "./FacultySlideOver";
 
 interface SearchResultsProps {
   results: SearchResult[];
@@ -60,6 +61,9 @@ export function SearchResults({
     return results.filter((result) => activeFilters.includes(result.type));
   }, [results, activeFilters]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Slide-over state
+  const [slideOverFaculty, setSlideOverFaculty] = useState<{ faculty: FacultyMember; matchedKeywords: string[] } | null>(null);
 
   // Inquiry dialog state
   const [inquiryTarget, setInquiryTarget] = useState<InquiryTarget | null>(null);
@@ -244,21 +248,35 @@ export function SearchResults({
             {/* Faculty Result */}
             {result.type === "faculty" && "name" in result.data && (
               <div className="flex gap-6">
-                {result.data.photo ? (
-                  <img
-                    src={result.data.photo}
-                    alt={result.data.name}
-                    className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-lg bg-[#8b0000] text-white flex flex-shrink-0 items-center justify-center text-2xl font-semibold">
-                    {getInitials(result.data.name)}
-                  </div>
-                )}
+                {/* Clickable photo → slide-over */}
+                <button
+                  type="button"
+                  onClick={() => setSlideOverFaculty({ faculty: result.data as FacultyMember, matchedKeywords: result.matchedKeywords })}
+                  className="flex-shrink-0 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#8b0000]/40 hover:opacity-90 transition-opacity"
+                  title={`View ${result.data.name}'s full profile`}
+                >
+                  {result.data.photo ? (
+                    <img
+                      src={result.data.photo}
+                      alt={result.data.name}
+                      className="w-24 h-24 object-cover"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 bg-[#8b0000] text-white flex items-center justify-center text-2xl font-semibold">
+                      {getInitials(result.data.name)}
+                    </div>
+                  )}
+                </button>
                 <div className="flex-1">
-                  <h3 className="text-xl font-medium text-gray-900 mb-1">
-                    {result.data.name}
-                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setSlideOverFaculty({ faculty: result.data as FacultyMember, matchedKeywords: result.matchedKeywords })}
+                    className="text-left hover:text-[#8b0000] transition-colors"
+                  >
+                    <h3 className="text-xl font-medium text-gray-900 mb-1 hover:text-[#8b0000]">
+                      {result.data.name}
+                    </h3>
+                  </button>
                   <p className="text-sm text-gray-600 mb-3">
                     {result.data.title} · {result.data.department}
                   </p>
@@ -348,7 +366,7 @@ export function SearchResults({
                     </div>
                   )}
 
-                  {/* Action buttons — always show Inquire via Admin; show Contact if email exists */}
+                  {/* Action buttons */}
                   <div className="flex items-center gap-3 flex-wrap mt-1">
                     {result.data.email && (
                       <a
@@ -360,14 +378,16 @@ export function SearchResults({
                         </Button>
                       </a>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openInquiry(result.data as FacultyMember)}
-                    >
-                      <Send className="w-4 h-4" />
-                      Send Request
-                    </Button>
+                    {(result.data as FacultyMember).allowMessagesViaSCOUP !== false && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openInquiry(result.data as FacultyMember)}
+                      >
+                        <Send className="w-4 h-4" />
+                        Send Request
+                      </Button>
+                    )}
                   </div>
 
                 </div>
@@ -601,6 +621,20 @@ export function SearchResults({
             Load {Math.min(PAGE_SIZE, filteredResults.length - visibleCount)} more results
           </button>
         </div>
+      )}
+
+      {/* Faculty Slide-over */}
+      {slideOverFaculty && (
+        <FacultySlideOver
+          faculty={slideOverFaculty.faculty}
+          matchedKeywords={slideOverFaculty.matchedKeywords}
+          onClose={() => setSlideOverFaculty(null)}
+          onInquiry={(faculty) => {
+            setSlideOverFaculty(null);
+            openInquiry(faculty);
+          }}
+          onNavigate={onNavigate}
+        />
       )}
 
       {/* Inquiry dialog */}

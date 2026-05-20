@@ -346,10 +346,45 @@ export const facultyInquiriesAPI = {
 };
 
 export const adminInquiriesAPI = {
-  list: async () => apiCall("/admin/inquiries/"),
+  list: async (source?: "faculty" | "external" | "admin") => {
+    const q = source ? `?source=${source}` : "";
+    return apiCall(`/admin/inquiries/${q}`);
+  },
   update: async (id: number, data: { status?: string; admin_notes?: string }) =>
     apiCall(`/admin/inquiries/${id}/`, {
       method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+};
+
+export const portalMessagesAPI = {
+  inbox: async () => apiCall("/faculty/portal-messages/inbox/"),
+  sent: async () => apiCall("/faculty/portal-messages/sent/"),
+  send: async (data: { recipient_id: number | string; subject: string; body: string }) =>
+    apiCall("/faculty/portal-messages/send/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  markRead: async (id: number) =>
+    apiCall(`/faculty/portal-messages/${id}/read/`, { method: "PATCH" }),
+};
+
+export const ticketsAPI = {
+  list: async () => apiCall("/faculty/tickets/"),
+  submit: async (data: { ticket_type: string; subject: string; description: string }) =>
+    apiCall("/faculty/tickets/submit/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  publicSubmit: async (data: {
+    ticket_type: string;
+    subject: string;
+    description: string;
+    submitter_name: string;
+    submitter_email: string;
+  }) =>
+    apiCall("/support/ticket/", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 };
@@ -420,6 +455,29 @@ export const adminAPI = {
   // Platform stats & audit log
   getStats: async () => apiCall("/admin/stats/"),
   getAuditLog: async () => apiCall("/admin/audit-log/"),
+
+  // Support tickets
+  getTickets: async (params: { status?: string; type?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.status) q.set("status", params.status);
+    if (params.type) q.set("type", params.type);
+    return apiCall(`/admin/tickets/${q.toString() ? `?${q}` : ""}`);
+  },
+  updateTicket: async (id: number, data: { status?: string; admin_notes?: string }) =>
+    apiCall(`/admin/tickets/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  // Admin → Faculty direct messaging
+  sendFacultyMessage: async (
+    facultyId: number,
+    data: { note: string; message_subject?: string },
+  ) =>
+    apiCall(`/admin/faculty/${facultyId}/message/`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   // Admin password change
   changePassword: async (currentPassword: string, newPassword: string) =>

@@ -9,6 +9,7 @@ import { SettingsPage } from "./dashboard/SettingsPage";
 import { AnalyticsPage } from "./dashboard/AnalyticsPage";
 import { NetworkPage } from "./dashboard/NetworkPage";
 import { InquiriesPage } from "./dashboard/InquiriesPage";
+import { MessagesPage } from "./dashboard/MessagesPage";
 import { BadgesWidget } from "./dashboard/BadgesWidget";
 import { DashboardOverview } from "./dashboard/DashboardOverview";
 import { VerificationBanner } from "./dashboard/VerificationBanner";
@@ -24,6 +25,7 @@ import {
   BarChart3,
   Network,
   MessageSquare,
+  Inbox,
   Trophy,
   Home,
   ChevronLeft,
@@ -50,6 +52,7 @@ export function FacultyDashboard({ onLogout, onNavigate }: FacultyDashboardProps
     | "analytics"
     | "network"
     | "inquiries"
+    | "messages"
     | "badges"
   >("overview");
 
@@ -72,6 +75,7 @@ export function FacultyDashboard({ onLogout, onNavigate }: FacultyDashboardProps
       tab === "analytics" ||
       tab === "network" ||
       tab === "inquiries" ||
+      tab === "messages" ||
       tab === "badges"
     ) {
       setActiveTab(tab);
@@ -100,6 +104,8 @@ export function FacultyDashboard({ onLogout, onNavigate }: FacultyDashboardProps
         return <NetworkPage />;
       case "inquiries":
         return <InquiriesPage />;
+      case "messages":
+        return <MessagesPage />;
       case "badges":
         return (
           <div className="max-w-7xl mx-auto">
@@ -167,6 +173,7 @@ export function FacultyDashboard({ onLogout, onNavigate }: FacultyDashboardProps
           <NavBtn tab="analytics" icon={BarChart3} label="Analytics"  />
           <NavBtn tab="network"   icon={Network}   label="Network"    />
           <NavBtn tab="inquiries" icon={MessageSquare} label="Inquiries" />
+          <NavBtn tab="messages"  icon={Inbox}      label="Messages"   />
           <NavBtn tab="badges"    icon={Trophy}    label="Badges"     />
         </nav>
 
@@ -174,7 +181,7 @@ export function FacultyDashboard({ onLogout, onNavigate }: FacultyDashboardProps
         <div className="p-2 border-t border-gray-200 space-y-0.5">
           <NavBtn tab="settings" icon={Settings} label="Settings" />
           <button
-            onClick={() => onNavigate("/")}
+            onClick={() => window.open("/", "_blank")}
             title={!sidebarOpen ? "Go to Search" : undefined}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors ${!sidebarOpen ? "justify-center" : ""}`}
           >

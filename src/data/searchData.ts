@@ -1,3 +1,9 @@
+export interface Qualification {
+  degree: string;
+  institution: string;
+  year?: string | number;
+}
+
 export interface FacultyMember {
   id: string;
   name: string;
@@ -9,6 +15,8 @@ export interface FacultyMember {
   phone: string;
   photo: string;
   bio: string;
+  qualifications?: Qualification[];
+  allowMessagesViaSCOUP?: boolean;
   researchInterests: string[];
   aiKeywords: string[];
   metricsProfile?: {

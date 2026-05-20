@@ -9,13 +9,12 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { Contact } from "./components/Contact";
 import { ResetPassword } from "./components/ResetPassword";
 import { BrowseCategories } from "./components/BrowseCategories";
-import {
-  Documentation,
-  ImplementationGapAnalysisDocumentation,
-  SearchEngineDocumentation,
-} from "./components/Documentation";
-import { CVUploadDocumentation } from "./components/CVUploadDocumentation";
+import { Documentation } from "./components/Documentation";
+import { PrivacyPolicy } from "./components/PrivacyPolicy";
+import { TermsOfService } from "./components/TermsOfService";
+import { CookiePolicy } from "./components/CookiePolicy";
 import { authAPI } from "./utils/api";
+import { FloatingSupportButton } from "./components/FloatingSupportButton";
 
 type UserRole = "admin" | "faculty" | null;
 const ROLE_STORAGE_KEY = "scoupUserRole";
@@ -54,7 +53,7 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     const boot = async () => {
       if (sessionStorage.getItem(ROLE_STORAGE_KEY) === "admin") return;
       if (!authAPI.isAuthenticated()) return;
@@ -88,12 +87,22 @@ export default function App() {
       navigateTo("/faculty-dashboard", true);
       return;
     }
+    // Block admin login when another tab already holds a faculty session
+    if (currentPath === "/faculty-login" && userRole === "admin") {
+      navigateTo("/", true);
+      return;
+    }
     if (
       currentPath === "/admin-login" &&
       userRole === "admin" &&
       authAPI.isAuthenticated()
     ) {
       navigateTo("/admin-dashboard", true);
+      return;
+    }
+    // Block faculty login when another tab already holds an admin session
+    if (currentPath === "/admin-login" && userRole === "faculty") {
+      navigateTo("/", true);
       return;
     }
   }, [currentPath, userRole]);
@@ -165,14 +174,14 @@ export default function App() {
         return <About onNavigate={handleNavigate} />;
       case "/contact":
         return <Contact onNavigate={handleNavigate} />;
-      case "/documentation":
+      case "/docs":
         return <Documentation onNavigate={handleNavigate} />;
-      case "/documentation/search-engine":
-        return <SearchEngineDocumentation onNavigate={handleNavigate} />;
-      case "/documentation/cv-upload":
-        return <CVUploadDocumentation onNavigate={handleNavigate} />;
-      case "/documentation/implementation-gap-analysis":
-        return <ImplementationGapAnalysisDocumentation onNavigate={handleNavigate} />;
+      case "/privacy":
+        return <PrivacyPolicy onNavigate={handleNavigate} />;
+      case "/terms":
+        return <TermsOfService onNavigate={handleNavigate} />;
+      case "/cookie-policy":
+        return <CookiePolicy onNavigate={handleNavigate} />;
       case "/reset-password":
         return <ResetPassword onNavigate={handleNavigate} />;
       case "/browse":
@@ -221,5 +230,16 @@ export default function App() {
     }
   };
 
-  return <div className="App">{renderPage()}</div>;
+  // Only show the floating support button on public-facing pages.
+  // Faculty and admin dashboards have their own internal messaging for support.
+  const isInDashboard =
+    (currentPath === "/faculty-dashboard" && userRole === "faculty") ||
+    (currentPath === "/admin-dashboard" && userRole === "admin");
+
+  return (
+    <div className="App">
+      {renderPage()}
+      {!isInDashboard && <FloatingSupportButton />}
+    </div>
+  );
 }

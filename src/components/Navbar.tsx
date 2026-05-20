@@ -63,6 +63,16 @@ export function Navbar({ onNavigate, currentPath }: NavbarProps) {
             >
               About SCOUP
             </button>
+            <button
+              onClick={() => onNavigate("/docs")}
+              className={`transition-colors font-medium ${
+                currentPath === "/docs"
+                  ? "text-[#8b0000] font-semibold"
+                  : "text-gray-700 hover:text-[#8b0000]"
+              }`}
+            >
+              Docs
+            </button>
           </nav>
 
           {/* Right Side - Desktop Buttons - Takes equal space as left side */}

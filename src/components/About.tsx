@@ -108,8 +108,33 @@ export function About({ onNavigate }: AboutProps) {
           </div>
         </section>
 
+        {/* Origin / Academic Metrics */}
+        <section className="py-14 px-6 bg-white border-t border-gray-100">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Where SCOUP Came From</h2>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              SCOUP grew out of <strong>Academic Metrics</strong>, a COSC 425 capstone project at Salisbury University
+              that built the original research discovery and faculty metrics tooling. That foundation — data
+              pipelines, CrossRef integration, and publication tracking — became the backbone of SCOUP v2.
+            </p>
+            <p className="text-gray-600 leading-relaxed mb-6">
+              Version 2 rebuilt the entire experience: a React + TypeScript frontend, a Django REST backend,
+              AI-powered search, faculty and admin dashboards, collaboration workflows, and a fully managed
+              deployment on Render.
+            </p>
+            <a
+              href="https://github.com/Salisbury-University/2024Fall-COSC425-AcademicMetrics"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#8b0000] hover:underline"
+            >
+              View the original Academic Metrics repository →
+            </a>
+          </div>
+        </section>
+
         {/* CTA Section - White Background */}
-        <section className="py-20 px-6 bg-white">
+        <section className="py-20 px-6 bg-white border-t border-gray-100">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl font-bold text-gray-900 mb-6">
               Empower Your Research & Collaboration

@@ -19,6 +19,8 @@ interface ContactSettings {
   support_email: string;
   github_url: string;
   linkedin_url: string;
+  documentation_url?: string;
+  api_documentation_url?: string;
   address_line_1: string;
   address_line_2: string;
   address_line_3: string;
@@ -129,11 +131,11 @@ export function ContactPageEditor() {
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-gray-900 mb-1">Contact Page Editor</h2>
-      <p className="text-gray-500 text-sm mb-6">Manage the public contact page content</p>
+      <h2 className="text-2xl font-semibold text-gray-900 mb-1">Contact & Links Editor</h2>
+      <p className="text-gray-500 text-sm mb-8">Manage the public contact page, team members, and documentation links</p>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200">
+      <div className="flex gap-3 mb-8 border-b border-gray-200">
         <button
           onClick={() => setTab("team")}
           className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
@@ -158,8 +160,8 @@ export function ContactPageEditor() {
 
       {/* Team Members Tab */}
       {tab === "team" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
+        <div className="space-y-5">
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
             <p className="text-sm text-gray-500">
               {loadingTeam ? "Loading..." : `${members.length} member${members.length !== 1 ? "s" : ""}`}
             </p>
@@ -189,7 +191,7 @@ export function ContactPageEditor() {
           )}
 
           {/* Member List */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             {members.map((member) =>
               editingMember?.id === member.id ? (
                 <MemberForm
@@ -252,20 +254,41 @@ export function ContactPageEditor() {
 
       {/* Settings Tab */}
       {tab === "settings" && (
-        <div className="max-w-xl">
+        <div className="max-w-2xl rounded-lg border border-gray-200 bg-white p-6">
           {loadingSettings ? (
             <p className="text-gray-500 text-sm">Loading...</p>
           ) : settings ? (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              <div className="flex flex-col gap-3 border-b border-gray-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Page Settings</h3>
+                  <p className="text-sm text-gray-500">Save contact details, project links, and documentation links.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {settingsMsg && <p className="text-sm text-green-600 font-medium">{settingsMsg}</p>}
+                  <button
+                    onClick={handleSettingsSave}
+                    disabled={savingSettings}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#8b0000] text-[#ffd100] rounded-lg text-sm font-medium hover:bg-[#6b0000] transition-colors disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    {savingSettings ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </div>
               <SettingsField label="General Email" value={settings.general_email} onChange={(v) => setSettings({ ...settings, general_email: v })} />
               <SettingsField label="Support Email" value={settings.support_email} onChange={(v) => setSettings({ ...settings, support_email: v })} />
               <SettingsField label="GitHub URL" value={settings.github_url} onChange={(v) => setSettings({ ...settings, github_url: v })} />
               <SettingsField label="LinkedIn URL" value={settings.linkedin_url} onChange={(v) => setSettings({ ...settings, linkedin_url: v })} />
+              <div className="grid gap-4 border-t border-gray-100 pt-5 md:grid-cols-2">
+                <SettingsField label="Documentation URL" value={settings.documentation_url || ""} onChange={(v) => setSettings({ ...settings, documentation_url: v })} />
+                <SettingsField label="API Documentation URL" value={settings.api_documentation_url || ""} onChange={(v) => setSettings({ ...settings, api_documentation_url: v })} />
+              </div>
               <SettingsField label="Address Line 1" value={settings.address_line_1} onChange={(v) => setSettings({ ...settings, address_line_1: v })} />
               <SettingsField label="Address Line 2" value={settings.address_line_2} onChange={(v) => setSettings({ ...settings, address_line_2: v })} />
               <SettingsField label="Address Line 3" value={settings.address_line_3} onChange={(v) => setSettings({ ...settings, address_line_3: v })} />
 
-              <div className="flex items-center gap-4 pt-2">
+              <div className="flex items-center gap-4 border-t border-gray-100 pt-5">
                 <button
                   onClick={handleSettingsSave}
                   disabled={savingSettings}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Lock, Bell, User, Save, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Lock, Bell, Save, CheckCircle2, ShieldCheck } from "lucide-react";
 import { Button } from "../ui/button";
 import { authAPI, facultyAPI } from "../../utils/api";
 
@@ -10,6 +10,14 @@ export function SettingsPage() {
   const [patentsVisible, setPatentsVisible] = useState(true);
   const [projectsVisible, setProjectsVisible] = useState(true);
   const [contactInfoVisible, setContactInfoVisible] = useState(true);
+
+  // Contact Privacy Settings
+  const [showEmail, setShowEmail] = useState(false);
+  const [showPhone, setShowPhone] = useState(false);
+  const [allowMessages, setAllowMessages] = useState(true);
+  const [privacySaved, setPrivacySaved] = useState(false);
+  const [privacyError, setPrivacyError] = useState("");
+  const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
 
   // Password Settings
   const [currentPassword, setCurrentPassword] = useState("");
@@ -45,6 +53,9 @@ export function SettingsPage() {
         } else if (typeof me?.profileVisibility === "boolean") {
           setProfileVisible(me.profileVisibility);
         }
+        if (typeof me?.show_email_publicly === "boolean") setShowEmail(me.show_email_publicly);
+        if (typeof me?.show_phone_publicly === "boolean") setShowPhone(me.show_phone_publicly);
+        if (typeof me?.allow_messages_through_scoup === "boolean") setAllowMessages(me.allow_messages_through_scoup);
       } catch (err: any) {
         setVisibilityError(err?.message || "Unable to load visibility settings.");
       } finally {
@@ -69,6 +80,25 @@ export function SettingsPage() {
       setVisibilityError(err?.message || "Unable to save visibility settings.");
     } finally {
       setIsSavingVisibility(false);
+    }
+  };
+
+  const handleSavePrivacy = async () => {
+    setIsSavingPrivacy(true);
+    setPrivacySaved(false);
+    setPrivacyError("");
+    try {
+      await facultyAPI.updateMe({
+        show_email_publicly: showEmail,
+        show_phone_publicly: showPhone,
+        allow_messages_through_scoup: allowMessages,
+      });
+      setPrivacySaved(true);
+      setTimeout(() => setPrivacySaved(false), 3000);
+    } catch (err: any) {
+      setPrivacyError(err?.message || "Unable to save privacy settings.");
+    } finally {
+      setIsSavingPrivacy(false);
     }
   };
 
@@ -188,6 +218,98 @@ export function SettingsPage() {
           {visibilityError && (
             <div className="text-sm text-red-600">{visibilityError}</div>
           )}
+        </div>
+      </div>
+
+      {/* Contact Privacy Settings */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-[#8b0000] rounded-lg flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5 text-[#ffd100]" />
+          </div>
+          <div>
+            <h2 className="text-xl font-medium text-gray-900">Contact Privacy</h2>
+            <p className="text-sm text-gray-600">Control what contact information is shown publicly and how others can reach you</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Show email */}
+          <div className="flex items-start justify-between py-3 border-b border-gray-100 gap-4">
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900">Show email address publicly</p>
+              <p className="text-sm text-gray-600">
+                Your email address will be visible on your public profile and search results.
+                Off by default — collaborators can still reach you via SCOUP's inquiry system.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowEmail(!showEmail)}
+              aria-label={showEmail ? "Hide email" : "Show email"}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8b0000] ${
+                showEmail ? "bg-[#8b0000]" : "bg-gray-300"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showEmail ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          {/* Show phone */}
+          <div className="flex items-start justify-between py-3 border-b border-gray-100 gap-4">
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900">Show phone number publicly</p>
+              <p className="text-sm text-gray-600">
+                Your phone number will be visible on your public profile and search results.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPhone(!showPhone)}
+              aria-label={showPhone ? "Hide phone" : "Show phone"}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8b0000] ${
+                showPhone ? "bg-[#8b0000]" : "bg-gray-300"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showPhone ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          {/* Allow messages */}
+          <div className="flex items-start justify-between py-3 gap-4">
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900">Allow collaboration requests via SCOUP</p>
+              <p className="text-sm text-gray-600">
+                External visitors and other faculty can send you collaboration inquiries through the platform.
+                Turning this off hides the "Send Request" button on your public profile.
+              </p>
+            </div>
+            <button
+              onClick={() => setAllowMessages(!allowMessages)}
+              aria-label={allowMessages ? "Disable messages" : "Enable messages"}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8b0000] ${
+                allowMessages ? "bg-[#8b0000]" : "bg-gray-300"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${allowMessages ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center gap-3 flex-wrap">
+          <Button
+            onClick={handleSavePrivacy}
+            disabled={isSavingPrivacy}
+            className="bg-[#8b0000] hover:bg-[#6b0000] text-[#ffd100]"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {isSavingPrivacy ? "Saving..." : "Save Privacy Settings"}
+          </Button>
+          {privacySaved && (
+            <div className="flex items-center gap-2 text-green-600">
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="text-sm font-medium">Settings saved!</span>
+            </div>
+          )}
+          {privacyError && <div className="text-sm text-red-600">{privacyError}</div>}
         </div>
       </div>
 

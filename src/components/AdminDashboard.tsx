@@ -9,12 +9,13 @@ import { AdminProfilePage } from "./admin/AdminProfilePage";
 import { ContactPageEditor } from "./admin/ContactPageEditor";
 import { PendingApprovalsPage } from "./admin/PendingApprovalsPage";
 import { InquiriesPage } from "./admin/InquiriesPage";
+import { AdminMessagesPage } from "./admin/AdminMessagesPage";
 import { Button } from "./ui/button";
 import { adminAPI } from "../utils/api";
 import {
   LogOut, LayoutDashboard, Users,
   UserCircle, Phone, ShieldCheck, ChevronLeft,
-  ChevronRight, MessageSquare, ExternalLink,
+  ChevronRight, MessageSquare, Inbox, ExternalLink,
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -22,7 +23,7 @@ interface AdminDashboardProps {
   onNavigate: (path: string) => void;
 }
 
-type Tab = "overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "inquiries" | "profile";
+type Tab = "overview" | "faculty" | "pending" | "departments" | "analytics" | "insights" | "contact" | "inquiries" | "messages" | "profile";
 
 export function AdminDashboard({ onLogout, onNavigate }: AdminDashboardProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -60,6 +61,7 @@ export function AdminDashboard({ onLogout, onNavigate }: AdminDashboardProps) {
       case "insights":    return <StrategicInsightsPage />;
       case "contact":     return <ContactPageEditor />;
       case "inquiries":   return <InquiriesPage />;
+      case "messages":    return <AdminMessagesPage />;
       case "profile":     return <AdminProfilePage />;
       default:            return <AdminOverviewPage onNavigate={setActiveTab} />;
     }
@@ -117,14 +119,15 @@ export function AdminDashboard({ onLogout, onNavigate }: AdminDashboardProps) {
           <NavBtn tab="faculty"     icon={Users}           label="Faculty Management" />
           <NavBtn tab="pending"     icon={ShieldCheck}     label="Pending Approvals"  badge={pendingCount} />
           <NavBtn tab="inquiries"   icon={MessageSquare}   label="Inquiries"          />
-          <NavBtn tab="contact"     icon={Phone}           label="Contact Page"       />
+          <NavBtn tab="messages"    icon={Inbox}           label="Messages"           />
+          <NavBtn tab="contact"     icon={Phone}           label="Contact & Links"    />
         </nav>
 
         {/* Profile + Logout */}
         <div className="p-2 border-t border-gray-200 space-y-0.5">
           <NavBtn tab="profile" icon={UserCircle} label="My Profile" />
           <button
-            onClick={() => onNavigate("/")}
+            onClick={() => window.open("/", "_blank")}
             title={!sidebarOpen ? "Go to Search" : undefined}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors ${!sidebarOpen ? "justify-center" : ""}`}
           >
