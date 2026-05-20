@@ -65,9 +65,18 @@ useEffect(() => {
           sessionStorage.setItem(ROLE_STORAGE_KEY, "faculty");
         }
       } catch {
-        authAPI.logout();
-        setUserRole(null);
-        sessionStorage.removeItem(ROLE_STORAGE_KEY);
+        // Not a faculty account — check if it's an admin
+        try {
+          await authAPI.adminMe();
+          if (!hasManualRoleSelection.current) {
+            setUserRole("admin");
+            sessionStorage.setItem(ROLE_STORAGE_KEY, "admin");
+          }
+        } catch {
+          authAPI.logout();
+          setUserRole(null);
+          sessionStorage.removeItem(ROLE_STORAGE_KEY);
+        }
       }
     };
 

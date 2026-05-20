@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { contactAPI } from "../../utils/api";
-import { Pencil, Trash2, Plus, Upload, Eye, EyeOff, Save, X } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, Eye, EyeOff, Save, X, GripVertical } from "lucide-react";
 
 interface TeamMember {
   id: number;
@@ -14,13 +14,21 @@ interface TeamMember {
   is_visible: boolean;
 }
 
+interface DocLink {
+  title: string;
+  description: string;
+  url: string;
+}
+
 interface ContactSettings {
   general_email: string;
   support_email: string;
   github_url: string;
+  backend_github_url?: string;
   linkedin_url: string;
   documentation_url?: string;
   api_documentation_url?: string;
+  documentation_links?: DocLink[];
   address_line_1: string;
   address_line_2: string;
   address_line_3: string;
@@ -120,13 +128,39 @@ export function ContactPageEditor() {
     if (file) setPendingPhotoFile(file);
   };
 
+  const normalizeUrl = (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
   const handleSettingsSave = async () => {
     if (!settings) return;
     setSavingSettings(true);
-    await contactAPI.adminUpdateSettings(settings);
-    setSavingSettings(false);
-    setSettingsMsg("Settings saved.");
-    setTimeout(() => setSettingsMsg(""), 3000);
+    setSettingsMsg("");
+    try {
+      const normalized: ContactSettings = {
+        ...settings,
+        github_url: normalizeUrl(settings.github_url),
+        backend_github_url: normalizeUrl(settings.backend_github_url || ""),
+        linkedin_url: normalizeUrl(settings.linkedin_url),
+        documentation_url: normalizeUrl(settings.documentation_url || ""),
+        api_documentation_url: normalizeUrl(settings.api_documentation_url || ""),
+        documentation_links: (settings.documentation_links || []).map((link) => ({
+          ...link,
+          url: normalizeUrl(link.url),
+        })),
+      };
+      setSettings(normalized);
+      await contactAPI.adminUpdateSettings(normalized);
+      setSettingsMsg("Settings saved.");
+    } catch (err: any) {
+      setSettingsMsg(`Error: ${err?.message || "Save failed."}`);
+    } finally {
+      setSavingSettings(false);
+      setTimeout(() => setSettingsMsg(""), 5000);
+    }
   };
 
   return (
@@ -254,52 +288,100 @@ export function ContactPageEditor() {
 
       {/* Settings Tab */}
       {tab === "settings" && (
-        <div className="max-w-2xl rounded-lg border border-gray-200 bg-white p-6">
+        <div className="max-w-2xl space-y-6">
           {loadingSettings ? (
             <p className="text-gray-500 text-sm">Loading...</p>
           ) : settings ? (
-            <div className="space-y-5">
-              <div className="flex flex-col gap-3 border-b border-gray-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900">Page Settings</h3>
-                  <p className="text-sm text-gray-500">Save contact details, project links, and documentation links.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {settingsMsg && <p className="text-sm text-green-600 font-medium">{settingsMsg}</p>}
-                  <button
-                    onClick={handleSettingsSave}
-                    disabled={savingSettings}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#8b0000] text-[#ffd100] rounded-lg text-sm font-medium hover:bg-[#6b0000] transition-colors disabled:opacity-50"
-                  >
-                    <Save className="w-4 h-4" />
-                    {savingSettings ? "Saving..." : "Save"}
-                  </button>
-                </div>
+            <>
+              {/* Contact Info */}
+              <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-5">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contact Info</p>
+                <SettingsField label="General Email" value={settings.general_email} onChange={(v) => setSettings({ ...settings, general_email: v })} />
+                <SettingsField label="Support Email" value={settings.support_email} onChange={(v) => setSettings({ ...settings, support_email: v })} />
+                <SettingsField label="LinkedIn URL" value={settings.linkedin_url} onChange={(v) => setSettings({ ...settings, linkedin_url: v })} />
+                <SettingsField label="Address Line 1" value={settings.address_line_1} onChange={(v) => setSettings({ ...settings, address_line_1: v })} />
+                <SettingsField label="Address Line 2" value={settings.address_line_2} onChange={(v) => setSettings({ ...settings, address_line_2: v })} />
+                <SettingsField label="Address Line 3" value={settings.address_line_3} onChange={(v) => setSettings({ ...settings, address_line_3: v })} />
               </div>
-              <SettingsField label="General Email" value={settings.general_email} onChange={(v) => setSettings({ ...settings, general_email: v })} />
-              <SettingsField label="Support Email" value={settings.support_email} onChange={(v) => setSettings({ ...settings, support_email: v })} />
-              <SettingsField label="GitHub URL" value={settings.github_url} onChange={(v) => setSettings({ ...settings, github_url: v })} />
-              <SettingsField label="LinkedIn URL" value={settings.linkedin_url} onChange={(v) => setSettings({ ...settings, linkedin_url: v })} />
-              <div className="grid gap-4 border-t border-gray-100 pt-5 md:grid-cols-2">
-                <SettingsField label="Documentation URL" value={settings.documentation_url || ""} onChange={(v) => setSettings({ ...settings, documentation_url: v })} />
+
+              {/* GitHub / Docs URLs */}
+              <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-5">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Repository & Documentation URLs</p>
+                <SettingsField label="Frontend GitHub URL" value={settings.github_url} onChange={(v) => setSettings({ ...settings, github_url: v })} />
+                <SettingsField label="Backend GitHub URL" value={settings.backend_github_url || ""} onChange={(v) => setSettings({ ...settings, backend_github_url: v })} />
+                <SettingsField label="Documentation Site URL" value={settings.documentation_url || ""} onChange={(v) => setSettings({ ...settings, documentation_url: v })} />
                 <SettingsField label="API Documentation URL" value={settings.api_documentation_url || ""} onChange={(v) => setSettings({ ...settings, api_documentation_url: v })} />
               </div>
-              <SettingsField label="Address Line 1" value={settings.address_line_1} onChange={(v) => setSettings({ ...settings, address_line_1: v })} />
-              <SettingsField label="Address Line 2" value={settings.address_line_2} onChange={(v) => setSettings({ ...settings, address_line_2: v })} />
-              <SettingsField label="Address Line 3" value={settings.address_line_3} onChange={(v) => setSettings({ ...settings, address_line_3: v })} />
 
-              <div className="flex items-center gap-4 border-t border-gray-100 pt-5">
+              {/* Documentation Links */}
+              <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Documentation Page Cards</p>
+                    <p className="text-xs text-gray-400 mt-1">These cards appear on the public Documentation page. Use full URLs.</p>
+                  </div>
+                  <button
+                    onClick={() => setSettings({ ...settings, documentation_links: [...(settings.documentation_links || []), { title: "", description: "", url: "" }] })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8b0000] text-[#ffd100] rounded-lg text-xs font-medium hover:bg-[#6b0000] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Card
+                  </button>
+                </div>
+
+                {(settings.documentation_links || []).length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-6 border border-dashed border-gray-200 rounded-lg">No cards yet — click Add Card to create one.</p>
+                )}
+
+                <div className="space-y-3">
+                  {(settings.documentation_links || []).map((link, i) => (
+                    <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <GripVertical className="w-4 h-4" />
+                          <span className="text-xs font-medium text-gray-500">Card {i + 1}</span>
+                        </div>
+                        <button
+                          onClick={() => setSettings({ ...settings, documentation_links: (settings.documentation_links || []).filter((_, j) => j !== i) })}
+                          className="p-1 hover:bg-red-50 hover:text-red-600 rounded transition-colors text-gray-400"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <input
+                        type="text" value={link.title}
+                        onChange={(e) => { const u = [...(settings.documentation_links || [])]; u[i] = { ...u[i], title: e.target.value }; setSettings({ ...settings, documentation_links: u }); }}
+                        placeholder="Title (e.g. Frontend Overview)"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8b0000] bg-white"
+                      />
+                      <input
+                        type="text" value={link.description}
+                        onChange={(e) => { const u = [...(settings.documentation_links || [])]; u[i] = { ...u[i], description: e.target.value }; setSettings({ ...settings, documentation_links: u }); }}
+                        placeholder="Short description"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8b0000] bg-white"
+                      />
+                      <input
+                        type="url" value={link.url}
+                        onChange={(e) => { const u = [...(settings.documentation_links || [])]; u[i] = { ...u[i], url: e.target.value }; setSettings({ ...settings, documentation_links: u }); }}
+                        placeholder="https://github.com/org/repo/blob/main/docs/file.md"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8b0000] bg-white font-mono"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
                 <button
                   onClick={handleSettingsSave}
                   disabled={savingSettings}
-                  className="flex items-center gap-2 px-5 py-2 bg-[#8b0000] text-[#ffd100] rounded-lg text-sm font-medium hover:bg-[#6b0000] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2 bg-[#8b0000] text-[#ffd100] rounded-lg text-sm font-medium hover:bg-[#6b0000] transition-colors disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
                   {savingSettings ? "Saving..." : "Save Settings"}
                 </button>
-                {settingsMsg && <p className="text-sm text-green-600 font-medium">{settingsMsg}</p>}
+                {settingsMsg && <p className={`text-sm font-medium ${settingsMsg.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>{settingsMsg}</p>}
               </div>
-            </div>
+            </>
           ) : null}
         </div>
       )}
@@ -422,7 +504,7 @@ function MemberForm({ data, onChange, onSave, onCancel, existingPhoto, photoFile
   );
 }
 
-function SettingsField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function SettingsField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div>
       <label className="text-sm text-gray-700 font-medium mb-1 block">{label}</label>
@@ -430,6 +512,7 @@ function SettingsField({ label, value, onChange }: { label: string; value: strin
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8b0000]"
       />
     </div>
