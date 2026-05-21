@@ -12,6 +12,7 @@ database_backups/*.sqlite3
 database_backups/*.json
 .claude/
 # Private presentation materials
+SCOUP-Demo-Guide.html
 docs/SCOUP-Presentation-Prep.docx
 docs/make-presentation-prep.js
 docs/node_modules/

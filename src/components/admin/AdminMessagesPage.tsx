@@ -380,7 +380,6 @@ export function AdminMessagesPage() {
             </p>
           )}
 
-          {/* Received — placeholder until faculty→admin reply is built */}
           {msgSubTab === "received" ? (
             <div className="text-center py-20">
               <Mail className="w-12 h-12 text-gray-200 mx-auto mb-4" />

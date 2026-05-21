@@ -11,11 +11,11 @@
 
 SCOUP has three distinct user types, each with a completely different experience:
 
-| Role | Access |
-|---|---|
-| **Public / Anonymous** | Home search, Browse Categories, About, Contact, collaboration inquiry, support ticket submission |
-| **Faculty** | Full dashboard — profile, papers, patents, projects, PDF upload, analytics, network, inquiries, messages, badges, settings |
-| **Admin** | Admin dashboard — faculty management, pending approvals, department management, inquiries, messaging, support tickets, analytics, strategic insights, contact page editor |
+| Role                   | Access                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Public / Anonymous** | Home search, Browse Categories, About, Contact, collaboration inquiry, support ticket submission                                                                          |
+| **Faculty**            | Full dashboard — profile, papers, patents, projects, PDF upload, analytics, network, inquiries, messages, badges, settings                                                |
+| **Admin**              | Admin dashboard — faculty management, pending approvals, department management, inquiries, messaging, support tickets, analytics, strategic insights, contact page editor |
 
 ---
 
@@ -31,10 +31,10 @@ The primary entry point. No login required.
 - **"Did You Mean"** suggestion bar shown when query confidence is low
 - **Result type filters** — toggle Faculty / Papers / Patents / Projects to narrow visible results
 - **Result cards** per type:
-  - *Faculty:* photo, name, title, department, research interests, NSF categories (clickable to Browse), confidence score, AI match summary, email/phone, Send Request button
-  - *Papers:* title, authors, journal, year, abstract preview, AI keywords, DOI link
-  - *Patents:* title, inventors, patent number, filing/issue dates, AI keywords, patent link
-  - *Projects:* title, lead faculty, status badge, description, collaboration openness badge, Express Interest button
+  - _Faculty:_ photo, name, title, department, research interests, NSF categories (clickable to Browse), confidence score, AI match summary, email/phone, Send Request button
+  - _Papers:_ title, authors, journal, year, abstract preview, AI keywords, DOI link
+  - _Patents:_ title, inventors, patent number, filing/issue dates, AI keywords, patent link
+  - _Projects:_ title, lead faculty, status badge, description, collaboration openness badge, Express Interest button
 - **Collaboration inquiry modal** — launched directly from any faculty or project result card
 - **Platform statistics** — total publications, faculty members, active patents, ongoing projects
 - **Charts** — Publications Per Year (line chart), Faculty by Department (bar chart)
@@ -46,12 +46,14 @@ The primary entry point. No login required.
 A structured alternative to search — explore research by discipline.
 
 **Category Index (`/browse`):**
+
 - Searchable grid of **16 NSF top-level research disciplines**
 - Each card shows sub-fields, faculty count, and paper count
 - Inline sub-field expansion without leaving the page
 - Cards link through to the full category detail page
 
 **Category Detail Page (`/browse/<slug>`):**
+
 - **Statistics panel** — faculty count, departments represented, total papers, total and average citations
 - **Top Faculty carousel** — paginated faculty cards for this discipline; click any card to drill into their profile
 - **Research Themes carousel** — paginated list of research themes within the category
@@ -289,6 +291,7 @@ Separate login — Django staff or superuser accounts only. Collapsible sidebar 
 ### 4.9 Messages
 
 **Direct Messages tab:**
+
 - **Sent** subtab — all admin-to-faculty portal messages: subject, recipient (clickable → profile panel), sender, status, date/time
 - **Received** subtab — reserved for future faculty-to-admin replies
 - **New Message** button → compose modal:
@@ -299,6 +302,7 @@ Separate login — Django staff or superuser accounts only. Collapsible sidebar 
 - Clicking a recipient name opens a **profile slide-over panel** with stats and a "Message this Faculty" shortcut
 
 **Support Tickets tab:**
+
 - All tickets submitted via the public floating button or faculty dashboard
 - Filter by: All, Open, In Progress, Resolved, Closed
 - Ticket cards: type badge, subject, submitter name/email, status, timestamp
@@ -343,18 +347,18 @@ Separate login — Django staff or superuser accounts only. Collapsible sidebar 
 
 ## 7. v1 → v2: What Changed
 
-| Area | v1 | v2 |
-|---|---|---|
-| Frontend framework | Static HTML / CSS | React 18 + TypeScript |
-| UI design | Basic forms | shadcn/ui + Tailwind CSS |
-| Search | Client-side keyword filter on full dataset | Server-side multi-signal ranked search with semantic fallback |
-| Browse | None | 16 NSF category index + detail pages with faculty and theme carousels |
-| Faculty dashboard | None | Full CRUD — profile, papers, patents, projects, analytics, network, inquiries, messages, badges |
-| Admin tools | Django admin panel only | Custom admin dashboard — faculty management, approvals, messaging, analytics, insights |
-| CV parsing | None | PDF upload → CrossRef enrichment → confirm flow → AI keywords |
-| Collaboration | None | Inquiry system, Open to Collaboration badge, admin→faculty direct messages, support ticket pipeline |
-| Auth | Session-based | JWT with auto-refresh and auto-logout |
-| Deployment | — | Render (backend + frontend static) |
+| Area               | v1                                         | v2                                                                                                  |
+| ------------------ | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Frontend framework | Static HTML / CSS                          | React 18 + TypeScript                                                                               |
+| UI design          | Basic forms                                | shadcn/ui + Tailwind CSS                                                                            |
+| Search             | Client-side keyword filter on full dataset | Server-side multi-signal ranked search with semantic fallback                                       |
+| Browse             | None                                       | 16 NSF category index + detail pages with faculty and theme carousels                               |
+| Faculty dashboard  | None                                       | Full CRUD — profile, papers, patents, projects, analytics, network, inquiries, messages, badges     |
+| Admin tools        | Django admin panel only                    | Custom admin dashboard — faculty management, approvals, messaging, analytics, insights              |
+| CV parsing         | None                                       | PDF upload → CrossRef enrichment → confirm flow → AI keywords                                       |
+| Collaboration      | None                                       | Inquiry system, Open to Collaboration badge, admin→faculty direct messages, support ticket pipeline |
+| Auth               | Session-based                              | JWT with auto-refresh and auto-logout                                                               |
+| Deployment         | —                                          | Render (backend + frontend static)                                                                  |
 
 ---
 

@@ -351,7 +351,6 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
 
   const handleClaimPaper = async (paper: SuggestedPaper) => {
     try {
-      // TODO: API call to claim individual paper
       setSuggestedPapers((prev) =>
         prev.filter((p) => String(p.id) !== String(paper.id)),
       );
@@ -362,7 +361,6 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
 
   const handleClaimPatent = async (patent: SuggestedPatent) => {
     try {
-      // TODO: API call to claim patent
       setSuggestedPatents((prev) =>
         prev.filter((p) => String(p.id) !== String(patent.id)),
       );
@@ -373,7 +371,6 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
 
   const handleClaimProject = async (project: SuggestedProject) => {
     try {
-      // TODO: API call to claim project
       setSuggestedProjects((prev) =>
         prev.filter((p) => String(p.id) !== String(project.id)),
       );
